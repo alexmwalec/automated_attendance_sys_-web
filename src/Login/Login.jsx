@@ -71,10 +71,6 @@ function Login() {
             Sign In
           </button>
         </form>
-
-        <button type="button" className="mt-6 text-sm text-teal-700 hover:underline">
-          Forgot password
-        </button>
       </div>
     </div>
   );
