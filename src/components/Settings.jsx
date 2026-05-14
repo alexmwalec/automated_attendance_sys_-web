@@ -35,7 +35,6 @@ function Settings() {
   const [passwordToast, setPasswordToast] = useState(null);
   const [passwordErrors, setPasswordErrors] = useState({});
 
-  // ── Profile handlers ──────────────────────────────────────
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfileData((prev) => ({ ...prev, [name]: value }));
@@ -52,12 +51,10 @@ function Settings() {
       setTimeout(() => setProfileToast(null), 3000);
       return;
     }
-    // In a real app, dispatch to context/API here
     setProfileToast({ type: "success", message: "Profile updated successfully." });
     setTimeout(() => setProfileToast(null), 3000);
   };
 
-  // ── Password handlers ─────────────────────────────────────
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
     setPasswordData((prev) => ({ ...prev, [name]: value }));
@@ -86,7 +83,6 @@ function Settings() {
       setPasswordErrors(errors);
       return;
     }
-    // In a real app, call API here
     setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
     setPasswordToast({ type: "success", message: "Password changed successfully." });
     setTimeout(() => setPasswordToast(null), 3000);
@@ -110,9 +106,10 @@ function Settings() {
           <span className="font-medium">Settings</span>
         </div>
 
-        <div className="max-w-2xl mx-auto space-y-6">
+        {/* Cards — full width, matching the header */}
+        <div className="space-y-6">
 
-          {/* ── Profile Card ── */}
+          {/* Profile Card */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center gap-2 mb-5">
               <FiUser className="h-5 w-5 text-teal-600" />
@@ -186,7 +183,6 @@ function Settings() {
               </div>
             </div>
 
-            {/* Profile toast */}
             {profileToast && (
               <div className={`mt-4 flex items-center gap-2 rounded-lg px-4 py-3 text-sm ${
                 profileToast.type === "success"
@@ -218,7 +214,7 @@ function Settings() {
             </div>
           </div>
 
-          {/* ── Change Password Card ── */}
+          {/* Change Password Card */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center gap-2 mb-5">
               <FiLock className="h-5 w-5 text-teal-600" />
@@ -279,7 +275,6 @@ function Settings() {
                 {passwordErrors.newPassword && (
                   <p className="mt-1 text-xs text-red-500">{passwordErrors.newPassword}</p>
                 )}
-                {/* Strength indicator */}
                 {passwordData.newPassword && (
                   <div className="mt-2">
                     <div className="flex gap-1">
@@ -361,7 +356,6 @@ function Settings() {
               </div>
             </div>
 
-            {/* Password toast */}
             {passwordToast && (
               <div className="mt-4 flex items-center gap-2 rounded-lg bg-teal-50 border border-teal-200 px-4 py-3 text-sm text-teal-700">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 shrink-0">
