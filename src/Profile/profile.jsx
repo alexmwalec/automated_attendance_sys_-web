@@ -8,12 +8,14 @@ function Profile() {
   const [editingIndex, setEditingIndex] = useState(null);
   const [toast, setToast] = useState(null);
   const [emailError, setEmailError] = useState("");
+  const [duplicateError, setDuplicateError] = useState("");
   const toastTimerRef = useRef(null);
 
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    name: "",
+    firstName: "",
+    surname: "",
     email: "",
     department: "",
     role: ""
@@ -22,12 +24,23 @@ function Profile() {
   const isValidEmail = (email) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-  // Check if email already exists, excluding the currently edited user
   const isDuplicateEmail = (email, excludeIndex = null) =>
     users.some(
       (user, i) =>
         user.email.toLowerCase() === email.trim().toLowerCase() &&
         i !== excludeIndex
+    );
+
+  // Check if exact same user (all fields) already exists
+  const isDuplicateUser = (data, excludeIndex = null) =>
+    users.some(
+      (user, i) =>
+        i !== excludeIndex &&
+        user.firstName.trim().toLowerCase() === data.firstName.trim().toLowerCase() &&
+        user.surname.trim().toLowerCase() === data.surname.trim().toLowerCase() &&
+        user.email.trim().toLowerCase() === data.email.trim().toLowerCase() &&
+        user.department === data.department &&
+        user.role === data.role
     );
 
   const showToast = (toastData, duration = 3000) => {
@@ -38,14 +51,15 @@ function Profile() {
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const updated = { ...formData, [name]: value };
+    setFormData(updated);
+    setDuplicateError("");
 
     if (name === "email") {
       if (!value) {
         setEmailError("");
         return;
       }
-      // Clear error live as user types — recheck both format and duplicate
       if (emailError) {
         if (!isValidEmail(value)) {
           setEmailError("Please enter a valid email address (e.g. name@example.com).");
@@ -70,7 +84,7 @@ function Profile() {
   };
 
   const handleAddUser = () => {
-    if (!formData.name || !formData.email || !formData.department || !formData.role) {
+    if (!formData.firstName || !formData.surname || !formData.email || !formData.department || !formData.role) {
       alert("Please fill in all fields.");
       return;
     }
@@ -85,51 +99,57 @@ function Profile() {
       return;
     }
 
+    if (isDuplicateUser(formData, editingIndex)) {
+      setDuplicateError("This user already exists. Please check all fields.");
+      return;
+    }
+
+    const fullName = `${formData.firstName.trim()} ${formData.surname.trim()}`;
+
     if (editingIndex !== null) {
       const updatedUsers = [...users];
       updatedUsers[editingIndex] = { ...formData };
       setUsers(updatedUsers);
       setEditingIndex(null);
-      showToast({ type: "success", message: `${formData.name}'s changes were saved successfully.` });
+      showToast({ type: "success", message: `${fullName}'s changes were saved successfully.` });
     } else {
       setUsers([...users, { ...formData }]);
-      showToast({ type: "success", message: `${formData.name} was added successfully.` });
+      showToast({ type: "success", message: `${fullName} was added successfully.` });
     }
 
-    setFormData({ name: "", email: "", department: "", role: "" });
+    setFormData({ firstName: "", surname: "", email: "", department: "", role: "" });
     setEmailError("");
+    setDuplicateError("");
   };
 
   const handleEdit = (index) => {
     setFormData({ ...users[index] });
     setEditingIndex(index);
     setEmailError("");
+    setDuplicateError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = (index) => {
     const deletedUser = users[index];
-
     setUsers((prev) => prev.filter((_, i) => i !== index));
     if (editingIndex === index) {
       setEditingIndex(null);
-      setFormData({ name: "", email: "", department: "", role: "" });
+      setFormData({ firstName: "", surname: "", email: "", department: "", role: "" });
       setEmailError("");
+      setDuplicateError("");
     }
-
     showToast({ type: "deleted", deletedUser, deletedIndex: index }, 5000);
   };
 
   const handleUndo = () => {
     if (!toast || toast.type !== "deleted") return;
     clearTimeout(toastTimerRef.current);
-
     setUsers((prev) => {
       const updated = [...prev];
       updated.splice(toast.deletedIndex, 0, toast.deletedUser);
       return updated;
     });
-
     setToast(null);
   };
 
@@ -144,12 +164,14 @@ function Profile() {
 
   const handleCancelEdit = () => {
     setEditingIndex(null);
-    setFormData({ name: "", email: "", department: "", role: "" });
+    setFormData({ firstName: "", surname: "", email: "", department: "", role: "" });
     setEmailError("");
+    setDuplicateError("");
   };
 
   const isFormValid =
-    formData.name &&
+    formData.firstName &&
+    formData.surname &&
     formData.email &&
     isValidEmail(formData.email) &&
     !isDuplicateEmail(formData.email, editingIndex) &&
@@ -184,13 +206,46 @@ function Profile() {
           <h2 className="text-xl font-semibold text-teal-700 mb-4">
             {editingIndex !== null ? "Edit User" : "Add New User"}
           </h2>
+
+          {/* Duplicate user banner */}
+          {duplicateError && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 shrink-0">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+              {duplicateError}
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2">
+
+            {/* First Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input type="text" name="name" value={formData.name} onChange={handleFormChange} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Enter name" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+              <input
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleFormChange}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                placeholder="Enter first name"
+              />
             </div>
 
-            {/* Email field with format + duplicate validation */}
+            {/* Surname */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Surname</label>
+              <input
+                type="text"
+                name="surname"
+                value={formData.surname}
+                onChange={handleFormChange}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                placeholder="Enter surname"
+              />
+            </div>
+
+            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
@@ -215,25 +270,39 @@ function Profile() {
                 </p>
               )}
             </div>
+
+            {/* Department */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-              <select name="department" value={formData.department} onChange={handleFormChange} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <select
+                name="department"
+                value={formData.department}
+                onChange={handleFormChange}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
                 <option value="" disabled hidden>Select department</option>
                 <option value="Computer Science">Computer Science</option>
                 <option value="Mathematics">Mathematics</option>
                 <option value="Physics">Physics</option>
                 <option value="Biology">Biology</option>
-              
               </select>
             </div>
+
+            {/* Role */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-              <select name="role" value={formData.role} onChange={handleFormChange} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleFormChange}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
                 <option value="" disabled hidden>Select role</option>
                 <option value="lecturer">Lecturer</option>
                 <option value="teaching assistant">Teaching Assistant</option>
               </select>
             </div>
+
           </div>
 
           <div className="flex justify-end gap-3 mt-6">
@@ -263,8 +332,9 @@ function Profile() {
           <table className="w-full min-w-full border border-gray-300">
             <thead>
               <tr className="bg-teal-600 text-white text-sm">
-                <th className="w-1/4 p-3 text-left border border-gray-300 whitespace-nowrap">NAME</th>
-                <th className="w-1/4 p-3 text-left border border-gray-300 whitespace-nowrap">EMAIL</th>
+                <th className="p-3 text-left border border-gray-300 whitespace-nowrap">FIRST NAME</th>
+                <th className="p-3 text-left border border-gray-300 whitespace-nowrap">SURNAME</th>
+                <th className="p-3 text-left border border-gray-300 whitespace-nowrap">EMAIL</th>
                 <th className="p-3 text-left border border-gray-300 whitespace-nowrap">DEPARTMENT</th>
                 <th className="p-3 text-left border border-gray-300 whitespace-nowrap">ROLE</th>
                 <th className="p-3 text-center border border-gray-300 whitespace-nowrap">ACTIONS</th>
@@ -273,13 +343,14 @@ function Profile() {
             <tbody>
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center text-gray-400 py-6 text-sm">No profiles added yet.</td>
+                  <td colSpan={6} className="text-center text-gray-400 py-6 text-sm">No profiles added yet.</td>
                 </tr>
               ) : (
                 users.map((user, index) => (
                   <tr key={index} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                    <td className="w-1/4 p-2 border border-gray-300">{user.name}</td>
-                    <td className="w-1/4 p-2 border border-gray-300">{user.email}</td>
+                    <td className="p-2 border border-gray-300">{user.firstName}</td>
+                    <td className="p-2 border border-gray-300">{user.surname}</td>
+                    <td className="p-2 border border-gray-300">{user.email}</td>
                     <td className="p-2 border border-gray-300">{user.department}</td>
                     <td className="p-2 border border-gray-300 capitalize">{user.role}</td>
                     <td className="p-2 border border-gray-300">
@@ -320,7 +391,7 @@ function Profile() {
           <span className="text-sm">
             {toast.type === "success"
               ? toast.message
-              : <><span className="font-semibold">{toast.deletedUser?.name}</span> was deleted.</>
+              : <><span className="font-semibold">{toast.deletedUser?.firstName} {toast.deletedUser?.surname}</span> was deleted.</>
             }
           </span>
 
