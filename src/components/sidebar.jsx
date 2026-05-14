@@ -83,15 +83,12 @@ function AdminMenu({ admin = defaultAdmin, isOpen: sidebarOpen }) {
         role="menu"
         aria-label="Admin profile options"
       >
-        {/* Profile header */}
         <div className="flex items-center gap-3 px-4 py-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-700">
             {initials || <FiUser className="h-5 w-5" />}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-gray-900">
-              {adminName}
-            </p>
+            <p className="truncate text-sm font-semibold text-gray-900">{adminName}</p>
             <p className="truncate text-xs text-gray-400">{adminEmail}</p>
             <span className="mt-1 inline-flex rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-700">
               {adminRole}
@@ -111,7 +108,6 @@ function AdminMenu({ admin = defaultAdmin, isOpen: sidebarOpen }) {
             <FiSettings className="h-4 w-4 text-gray-400" aria-hidden="true" />
             Settings
           </button>
-
           <button
             type="button"
             onClick={handleLogout}
@@ -140,9 +136,7 @@ function AdminMenu({ admin = defaultAdmin, isOpen: sidebarOpen }) {
             {initials || <FiUser className="h-4 w-4" />}
           </span>
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm font-semibold text-white">
-              {adminName}
-            </span>
+            <span className="truncate text-sm font-semibold text-white">{adminName}</span>
             <span className="truncate text-xs text-teal-100">{adminRole}</span>
           </div>
           <FiChevronDown
@@ -177,26 +171,11 @@ function Sidebar() {
   const [isOpen, setIsOpen] = useState(true);
 
   const navItems = [
-    {
-      name: "Dashboard",
-      path: "/dashboard",
-      icon: <FiGrid className="h-5 w-5" />,
-    },
-    {
-      name: "Analytics",
-      path: "/analytics",
-      icon: <FiBarChart2 className="h-5 w-5" />,
-    },
-    {
-      name: "Assign Invigilator",
-      path: "/assign",
-      icon: <FiClipboard className="h-5 w-5" />,
-    },
-    {
-      name: "Profile",
-      path: "/profile",
-      icon: <FiUsers className="h-5 w-5" />,
-    },
+    { name: "Dashboard", path: "/dashboard", icon: <FiGrid className="h-5 w-5" /> },
+    { name: "Analytics", path: "/analytics", icon: <FiBarChart2 className="h-5 w-5" /> },
+    { name: "Assign Invigilator", path: "/assign", icon: <FiClipboard className="h-5 w-5" /> },
+    { name: "Profile", path: "/profile", icon: <FiUsers className="h-5 w-5" /> },
+    { name: "Settings", path: "/settings", icon: <FiSettings className="h-5 w-5" /> },
   ];
 
   return (
@@ -212,26 +191,15 @@ function Sidebar() {
         aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
       >
         <FiChevronLeft
-          className={`h-3.5 w-3.5 transition-transform duration-300 ${
-            isOpen ? "" : "rotate-180"
-          }`}
+          className={`h-3.5 w-3.5 transition-transform duration-300 ${isOpen ? "" : "rotate-180"}`}
         />
       </button>
 
       {/* Header */}
       <div className="flex flex-col items-center mb-6 overflow-hidden">
-        <div
-          className={`bg-teal-100 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
-            isOpen ? "w-20 h-20" : "w-9 h-9"
-          }`}
-        >
-          <FiUser
-            className={`text-teal-600 transition-all duration-300 ${
-              isOpen ? "h-10 w-10" : "h-5 w-5"
-            }`}
-          />
+        <div className={`bg-teal-100 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${isOpen ? "w-20 h-20" : "w-9 h-9"}`}>
+          <FiUser className={`text-teal-600 transition-all duration-300 ${isOpen ? "h-10 w-10" : "h-5 w-5"}`} />
         </div>
-
         <h2
           className={`mt-2 text-sm text-gray-600 text-center whitespace-nowrap transition-all duration-200 ${
             isOpen ? "opacity-100 max-h-10" : "opacity-0 max-h-0 overflow-hidden"
@@ -254,9 +222,7 @@ function Sidebar() {
               } ${!isOpen ? "justify-center" : ""}`
             }
           >
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-              {item.icon}
-            </span>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center">{item.icon}</span>
             <span
               className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
                 isOpen ? "opacity-100 max-w-xs" : "opacity-0 max-w-0"
