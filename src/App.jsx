@@ -4,7 +4,7 @@ import Profile from "./Profile/profile";
 import Assign from "./Assign/assign";
 import Dashboard from "./Dashboard/Dashboard";
 import Login from "./Login/Login";
-
+import TestFirebase from "./Test/firebaseTest";
 function App() {
   return (
     <Router>
@@ -14,6 +14,7 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/assign" element={<Assign />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/test-firebase" element={<TestFirebase />} />
       </Routes>
     </Router>
   );
