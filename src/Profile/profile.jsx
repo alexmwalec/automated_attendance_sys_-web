@@ -8,6 +8,7 @@ function Profile() {
   const [editingIndex, setEditingIndex] = useState(null);
   const [toast, setToast] = useState(null);
   const [emailError, setEmailError] = useState("");
+  const [duplicateError, setDuplicateError] = useState("");
   const toastTimerRef = useRef(null);
 
   const navigate = useNavigate();
@@ -30,6 +31,18 @@ function Profile() {
         i !== excludeIndex
     );
 
+  // Check if exact same user (all fields) already exists
+  const isDuplicateUser = (data, excludeIndex = null) =>
+    users.some(
+      (user, i) =>
+        i !== excludeIndex &&
+        user.firstName.trim().toLowerCase() === data.firstName.trim().toLowerCase() &&
+        user.surname.trim().toLowerCase() === data.surname.trim().toLowerCase() &&
+        user.email.trim().toLowerCase() === data.email.trim().toLowerCase() &&
+        user.department === data.department &&
+        user.role === data.role
+    );
+
   const showToast = (toastData, duration = 3000) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(toastData);
@@ -38,7 +51,9 @@ function Profile() {
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const updated = { ...formData, [name]: value };
+    setFormData(updated);
+    setDuplicateError("");
 
     if (name === "email") {
       if (!value) {
@@ -84,6 +99,11 @@ function Profile() {
       return;
     }
 
+    if (isDuplicateUser(formData, editingIndex)) {
+      setDuplicateError("This user already exists. Please check all fields.");
+      return;
+    }
+
     const fullName = `${formData.firstName.trim()} ${formData.surname.trim()}`;
 
     if (editingIndex !== null) {
@@ -99,12 +119,14 @@ function Profile() {
 
     setFormData({ firstName: "", surname: "", email: "", department: "", role: "" });
     setEmailError("");
+    setDuplicateError("");
   };
 
   const handleEdit = (index) => {
     setFormData({ ...users[index] });
     setEditingIndex(index);
     setEmailError("");
+    setDuplicateError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -115,6 +137,7 @@ function Profile() {
       setEditingIndex(null);
       setFormData({ firstName: "", surname: "", email: "", department: "", role: "" });
       setEmailError("");
+      setDuplicateError("");
     }
     showToast({ type: "deleted", deletedUser, deletedIndex: index }, 5000);
   };
@@ -143,6 +166,7 @@ function Profile() {
     setEditingIndex(null);
     setFormData({ firstName: "", surname: "", email: "", department: "", role: "" });
     setEmailError("");
+    setDuplicateError("");
   };
 
   const isFormValid =
@@ -182,6 +206,17 @@ function Profile() {
           <h2 className="text-xl font-semibold text-teal-700 mb-4">
             {editingIndex !== null ? "Edit User" : "Add New User"}
           </h2>
+
+          {/* Duplicate user banner */}
+          {duplicateError && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 shrink-0">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+              {duplicateError}
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2">
 
             {/* First Name */}
