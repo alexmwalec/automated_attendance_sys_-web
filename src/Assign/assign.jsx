@@ -72,17 +72,16 @@ function AssignInvigilator() {
 
   // Fetch rooms from Firestore
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "rooms"), (snapshot) => {
-      const names = snapshot.docs
-        .map((d) => d.data().name)
-        .filter(Boolean)
-        .sort();
-      setAllRooms(names);
-      setLoadingRooms(false);
-    }, (error) => {
-      console.error("Error fetching rooms:", error);
-      setLoadingRooms(false);
-    });
+   const unsubscribe = onSnapshot(collection(db, "rooms"), (snapshot) => {
+  const names = snapshot.docs
+    .map((d) => d.id)
+    .sort();
+  setAllRooms(names);
+  setLoadingRooms(false);
+}, (error) => {
+  console.error("Error fetching rooms:", error);
+  setLoadingRooms(false);
+});
     return () => unsubscribe();
   }, []);
 
