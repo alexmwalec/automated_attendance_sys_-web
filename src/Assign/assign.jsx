@@ -20,8 +20,12 @@ function AssignInvigilator() {
   });
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [assignedInvigilators, setAssignedInvigilators] = useState([]);
-  const [allInvigilators, setAllInvigilators] = useState([]); // from Firestore
+  const [allInvigilators, setAllInvigilators] = useState([]);
+  const [allCourses, setAllCourses] = useState([]);
+  const [allRooms, setAllRooms] = useState([]);
   const [loadingInvigilators, setLoadingInvigilators] = useState(true);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [loadingRooms, setLoadingRooms] = useState(true);
   const [loadingAssignments, setLoadingAssignments] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -34,7 +38,7 @@ function AssignInvigilator() {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Fetch invigilators from "profile" collection (role = "invigilator")
+  // Fetch invigilators from profile collection
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "profile"), (snapshot) => {
       const names = snapshot.docs.map((d) => {
@@ -47,15 +51,45 @@ function AssignInvigilator() {
       console.error("Error fetching invigilators:", error);
       setLoadingInvigilators(false);
     });
-
     return () => unsubscribe();
   }, []);
 
-  // Fetch assignments from "exam_assignments" collection in real-time
+  // Fetch courses from Firestore
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
+      const codes = snapshot.docs
+        .map((d) => d.data().code)
+        .filter(Boolean)
+        .sort();
+      setAllCourses(codes);
+      setLoadingCourses(false);
+    }, (error) => {
+      console.error("Error fetching courses:", error);
+      setLoadingCourses(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch rooms from Firestore
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "rooms"), (snapshot) => {
+      const names = snapshot.docs
+        .map((d) => d.data().name)
+        .filter(Boolean)
+        .sort();
+      setAllRooms(names);
+      setLoadingRooms(false);
+    }, (error) => {
+      console.error("Error fetching rooms:", error);
+      setLoadingRooms(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch assignments from exam_assignments collection
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "exam_assignments"), (snapshot) => {
       const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      // Sort by date ascending so latest exams appear in order
       data.sort((a, b) => new Date(a.date) - new Date(b.date));
       setAssignedInvigilators(data);
       setLoadingAssignments(false);
@@ -63,7 +97,6 @@ function AssignInvigilator() {
       console.error("Error fetching assignments:", error);
       setLoadingAssignments(false);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -97,14 +130,11 @@ function AssignInvigilator() {
     setFormData({ ...formData, [name]: value });
 
     if (name === "invigilator") {
-      const query = value.trim().toLowerCase();
-      if (query === "") {
+      const q = value.trim().toLowerCase();
+      if (q === "") {
         setSuggestions(recentInvigilators.length > 0 ? recentInvigilators : allInvigilators.slice(0, 5));
       } else {
-        const matched = allInvigilators.filter((n) =>
-          n.toLowerCase().includes(query)
-        );
-        setSuggestions(matched);
+        setSuggestions(allInvigilators.filter((n) => n.toLowerCase().includes(q)));
       }
       setShowSuggestions(true);
     }
@@ -115,8 +145,7 @@ function AssignInvigilator() {
     if (q === "") {
       setSuggestions(recentInvigilators.length > 0 ? recentInvigilators : allInvigilators.slice(0, 5));
     } else {
-      const matched = allInvigilators.filter((n) => n.toLowerCase().includes(q));
-      setSuggestions(matched);
+      setSuggestions(allInvigilators.filter((n) => n.toLowerCase().includes(q)));
     }
     setShowSuggestions(true);
   };
@@ -136,14 +165,12 @@ function AssignInvigilator() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Save assignment to Firestore
   const handleAssign = async () => {
     if (!formData.course || !formData.date || !formData.time || !formData.room || !formData.invigilator) {
       alert("Please fill in all fields before assigning.");
       return;
     }
 
-    // Check 1: invigilator already busy at same date & time
     const invigilatorBusy = assignedInvigilators.find(
       (a) =>
         a.invigilator.toLowerCase() === formData.invigilator.toLowerCase() &&
@@ -157,7 +184,6 @@ function AssignInvigilator() {
       return;
     }
 
-    // Check 2: exact duplicate
     const exactDuplicate = assignedInvigilators.find(
       (a) =>
         a.invigilator.toLowerCase() === formData.invigilator.toLowerCase() &&
@@ -185,7 +211,6 @@ function AssignInvigilator() {
     }
   };
 
-  //Update status in Firestore
   const handleMarkDone = async (index) => {
     const item = assignedInvigilators[index];
     try {
@@ -205,7 +230,6 @@ function AssignInvigilator() {
       <Sidebar />
 
       <main className="flex-1 p-6 overflow-y-auto">
-        {/* Header */}
         <div className="bg-teal-500 text-white px-4 py-3 rounded-lg mb-4 flex justify-between items-center relative">
           <span>Assign Invigilator</span>
           <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 hover:bg-teal-600">
@@ -236,49 +260,62 @@ function AssignInvigilator() {
             </thead>
             <tbody>
               <tr className="bg-white">
+
                 <td className="p-2 border border-gray-300">
-                  <select name="course" value={formData.course} onChange={handleFormChange} className="w-full px-2 py-1 text-sm">
-                    <option value="" disabled hidden>Select Course</option>
-                    <option>COM411</option>
-                    <option>COM412</option>
-                    <option>COM413</option>
-                    <option>COM414</option>
-                    <option>COM415</option>
-                    <option>COM421</option>
-                    <option>COM422</option>
-                    <option>COM423</option>
-                    <option>COM424</option>
-                    <option>COM425</option>
-                    <option>COM432</option>
-                    <option>INF423</option>
-                    <option>SCE411</option>
-                  </select>
-                </td>
-                <td className="p-2 border border-gray-300">
-                  <input type="date" name="date" value={formData.date} onChange={handleFormChange}
-                    min={today} className="w-full px-2 py-1 text-sm" />
-                </td>
-                <td className="p-2 border border-gray-300">
-                  <input type="time" name="time" value={formData.time} onChange={handleFormChange}
-                    className="w-full px-2 py-1 text-sm" />
-                </td>
-                <td className="p-2 border border-gray-300">
-                  <select name="room" value={formData.room} onChange={handleFormChange} className="w-full px-2 py-1 text-sm">
-                    <option value="" disabled hidden>Select Room</option>
-                    <option>CK1</option>
-                    <option>CK2</option>
-                    <option>COMLAB1</option>
-                    <option>COMLAB2</option>
-                    <option>ROOM A</option>
-                    <option>ROOM B</option>
-                    <option>GREAT HALL</option>
-                    <option>MW1</option>
-                    <option>MW2</option>
-                    <option>WADONDA</option>
+                  <select
+                    name="course"
+                    value={formData.course}
+                    onChange={handleFormChange}
+                    disabled={loadingCourses}
+                    className="w-full px-2 py-1 text-sm"
+                  >
+                    <option value="" disabled hidden>
+                      {loadingCourses ? "Loading..." : "Select Course"}
+                    </option>
+                    {allCourses.map((code) => (
+                      <option key={code} value={code}>{code}</option>
+                    ))}
                   </select>
                 </td>
 
-                {/*Invigilator autocomplete from Firestore */}
+                <td className="p-2 border border-gray-300">
+                  <input
+                    type="date"
+                    name="date"
+                    value={formData.date}
+                    onChange={handleFormChange}
+                    min={today}
+                    className="w-full px-2 py-1 text-sm"
+                  />
+                </td>
+
+                <td className="p-2 border border-gray-300">
+                  <input
+                    type="time"
+                    name="time"
+                    value={formData.time}
+                    onChange={handleFormChange}
+                    className="w-full px-2 py-1 text-sm"
+                  />
+                </td>
+
+                <td className="p-2 border border-gray-300">
+                  <select
+                    name="room"
+                    value={formData.room}
+                    onChange={handleFormChange}
+                    disabled={loadingRooms}
+                    className="w-full px-2 py-1 text-sm"
+                  >
+                    <option value="" disabled hidden>
+                      {loadingRooms ? "Loading..." : "Select Room"}
+                    </option>
+                    {allRooms.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </td>
+
                 <td className="p-2 border border-gray-300">
                   <div className="relative" ref={suggestionRef}>
                     <input
@@ -288,7 +325,7 @@ function AssignInvigilator() {
                       onChange={handleFormChange}
                       onFocus={handleInvigilatorFocus}
                       className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
-                      placeholder={loadingInvigilators ? "Loading..." : allInvigilators.length === 0 ? "No invigilators found" : "Search name..."}
+                      placeholder={loadingInvigilators ? "Loading..." : allInvigilators.length === 0 ? "No profiles found" : "Search name..."}
                       autoComplete="off"
                       disabled={loadingInvigilators}
                     />
@@ -323,8 +360,6 @@ function AssignInvigilator() {
                         ))}
                       </div>
                     )}
-
-                    {/* give feedback if there are no matches */}
                     {showSuggestions && suggestions.length === 0 && formData.invigilator.trim() !== "" && !loadingInvigilators && (
                       <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-sm text-gray-400">
                         No invigilator found
@@ -332,6 +367,7 @@ function AssignInvigilator() {
                     )}
                   </div>
                 </td>
+
               </tr>
             </tbody>
           </table>
@@ -355,7 +391,6 @@ function AssignInvigilator() {
             </button>
           </div>
 
-          {/* Assigned Invigilators Table */}
           <div className="mt-8">
             <h3 className="text-lg font-semibold text-teal-700 mb-3">Assigned Invigilators</h3>
             {loadingAssignments ? (
@@ -412,7 +447,6 @@ function AssignInvigilator() {
         </div>
       </main>
 
-      {/* Success Toast */}
       {successToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-teal-700 text-white px-5 py-3 rounded-xl shadow-xl animate-fade-in-up">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-teal-200 shrink-0">
@@ -429,7 +463,6 @@ function AssignInvigilator() {
         </div>
       )}
 
-      {/* Error Toast */}
       {errorToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-red-600 text-white px-5 py-3 rounded-xl shadow-xl animate-fade-in-up">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-red-200 shrink-0">
