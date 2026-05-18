@@ -89,16 +89,15 @@ function AdminMenu({ admin = defaultAdmin }) {
 
         {/* Menu actions */}
         <div className="p-2">
-          <button
-            type="button"
-            onClick={handleSettings}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-700 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            role="menuitem"
-          >
-            <FiSettings className="h-4 w-4 text-gray-400" aria-hidden="true" />
-            Settings
-          </button>
-
+<button
+  type="button"
+  onClick={handleSettings}
+  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-700 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+  role="menuitem"
+>
+  <FiUser className="h-4 w-4 text-gray-400" aria-hidden="true" />
+  Profile
+</button>
           <button
             type="button"
             onClick={handleLogout}
