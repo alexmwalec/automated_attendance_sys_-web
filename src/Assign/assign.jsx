@@ -31,13 +31,9 @@ function AssignInvigilator() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [successToast, setSuccessToast] = useState(null);
   const [errorToast, setErrorToast] = useState(null);
-
-  // Filters
   const [filterStatus, setFilterStatus] = useState("");
   const [filterInvigilator, setFilterInvigilator] = useState("");
   const [filterCourse, setFilterCourse] = useState("");
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  const [filterDateTo, setFilterDateTo] = useState("");
 
   const suggestionRef = useRef(null);
   const successToastTimerRef = useRef(null);
@@ -45,6 +41,24 @@ function AssignInvigilator() {
   const navigate = useNavigate();
 
   const today = new Date().toISOString().split("T")[0];
+
+  // Normalize any date string to a consistent Date object for sorting and display
+  const parseDate = (dateStr) => {
+    if (!dateStr) return new Date(0);
+    // handles "2026-05-18", "25 April, 2025", "25 April 2026", "April 25, 2026" etc.
+    const parsed = new Date(dateStr);
+    return isNaN(parsed) ? new Date(0) : parsed;
+  };
+
+  const formatDate = (dateStr) => {
+    const date = parseDate(dateStr);
+    if (!dateStr || date.getTime() === 0) return dateStr;
+    return date.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+  };
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "profile"), (snapshot) => {
@@ -86,9 +100,7 @@ function AssignInvigilator() {
   }, []);
 
   useEffect(() => {
-    console.log("exam_assignments listener starting...");
     const unsubscribe = onSnapshot(collection(db, "exam_assignments"), (snapshot) => {
-      console.log("exam_assignments snapshot received:", snapshot.size);
       const data = snapshot.docs.map((d) => {
         const docData = d.data();
         return {
@@ -101,7 +113,8 @@ function AssignInvigilator() {
           status: docData.status
         };
       });
-      data.sort((a, b) => new Date(a.date) - new Date(b.date));
+      // Sort descending — newest date on top
+      data.sort((a, b) => parseDate(b.date) - parseDate(a.date));
       setAssignedInvigilators(data);
       setLoadingAssignments(false);
     }, (error) => {
@@ -118,24 +131,19 @@ function AssignInvigilator() {
     };
   }, []);
 
-  // Apply filters
   const filteredAssignments = assignedInvigilators.filter((item) => {
     if (filterStatus && item.status !== filterStatus) return false;
     if (filterInvigilator && !item.invigilator.toLowerCase().includes(filterInvigilator.toLowerCase())) return false;
     if (filterCourse && item.course !== filterCourse) return false;
-    if (filterDateFrom && item.date < filterDateFrom) return false;
-    if (filterDateTo && item.date > filterDateTo) return false;
     return true;
   });
 
-  const hasActiveFilters = filterStatus || filterInvigilator || filterCourse || filterDateFrom || filterDateTo;
+  const hasActiveFilters = filterStatus || filterInvigilator || filterCourse;
 
   const clearFilters = () => {
     setFilterStatus("");
     setFilterInvigilator("");
     setFilterCourse("");
-    setFilterDateFrom("");
-    setFilterDateTo("");
   };
 
   const recentInvigilators = [
@@ -364,7 +372,6 @@ function AssignInvigilator() {
             </button>
           </div>
 
-          {/* Assigned Invigilators */}
           <div className="mt-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-teal-700">Assigned Invigilators</h3>
@@ -377,7 +384,7 @@ function AssignInvigilator() {
             </div>
 
             {/* Filter Bar */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
@@ -406,22 +413,6 @@ function AssignInvigilator() {
                 placeholder="Search invigilator..."
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
-
-              <input
-                type="date"
-                value={filterDateFrom}
-                onChange={(e) => setFilterDateFrom(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                title="From date"
-              />
-
-              <input
-                type="date"
-                value={filterDateTo}
-                onChange={(e) => setFilterDateTo(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                title="To date"
-              />
             </div>
 
             {loadingAssignments ? (
@@ -442,7 +433,7 @@ function AssignInvigilator() {
                   {filteredAssignments.map((item, index) => (
                     <tr key={item.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                       <td className="p-2 border border-gray-300">{item.course}</td>
-                      <td className="p-2 border border-gray-300">{item.date}</td>
+                      <td className="p-2 border border-gray-300">{formatDate(item.date)}</td>
                       <td className="p-2 border border-gray-300">{item.time}</td>
                       <td className="p-2 border border-gray-300">{item.room}</td>
                       <td className="p-2 border border-gray-300">{item.invigilator}</td>
