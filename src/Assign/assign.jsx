@@ -7,7 +7,8 @@ import {
   addDoc,
   updateDoc,
   doc,
-  onSnapshot
+  onSnapshot,
+  getDocs
 } from "firebase/firestore";
 
 function AssignInvigilator() {
@@ -38,7 +39,6 @@ function AssignInvigilator() {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Fetch invigilators from profile collection
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "profile"), (snapshot) => {
       const names = snapshot.docs.map((d) => {
@@ -54,13 +54,9 @@ function AssignInvigilator() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch courses from Firestore
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
-      const codes = snapshot.docs
-        .map((d) => d.data().code)
-        .filter(Boolean)
-        .sort();
+      const codes = snapshot.docs.map((d) => d.id).sort();
       setAllCourses(codes);
       setLoadingCourses(false);
     }, (error) => {
@@ -70,33 +66,41 @@ function AssignInvigilator() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch rooms from Firestore
   useEffect(() => {
-   const unsubscribe = onSnapshot(collection(db, "rooms"), (snapshot) => {
-  const names = snapshot.docs
-    .map((d) => d.id)
-    .sort();
-  setAllRooms(names);
-  setLoadingRooms(false);
-}, (error) => {
-  console.error("Error fetching rooms:", error);
-  setLoadingRooms(false);
-});
+    const unsubscribe = onSnapshot(collection(db, "rooms"), (snapshot) => {
+      const names = snapshot.docs.map((d) => d.id).sort();
+      setAllRooms(names);
+      setLoadingRooms(false);
+    }, (error) => {
+      console.error("Error fetching rooms:", error);
+      setLoadingRooms(false);
+    });
     return () => unsubscribe();
   }, []);
 
-  // Fetch assignments from exam_assignments collection
   useEffect(() => {
-   const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
-  const codes = snapshot.docs
-    .map((d) => d.id)
-    .sort();
-  setAllCourses(codes);
-  setLoadingCourses(false);
-}, (error) => {
-  console.error("Error fetching courses:", error);
-  setLoadingCourses(false);
-});
+    console.log("exam_assignments listener starting...");
+    const unsubscribe = onSnapshot(collection(db, "exam_assignments"), (snapshot) => {
+      console.log("exam_assignments snapshot received:", snapshot.size);
+      const data = snapshot.docs.map((d) => {
+        const docData = d.data();
+        return {
+          id: d.id,
+          course: docData.course,
+          date: docData.date,
+          time: docData.time,
+          room: docData.room,
+          invigilator: docData.invigilatorName || docData.invigilator || "",
+          status: docData.status
+        };
+      });
+      data.sort((a, b) => new Date(a.date) - new Date(b.date));
+      setAssignedInvigilators(data);
+      setLoadingAssignments(false);
+    }, (error) => {
+      console.error("exam_assignments snapshot error:", error);
+      setLoadingAssignments(false);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -199,7 +203,11 @@ function AssignInvigilator() {
 
     try {
       await addDoc(collection(db, "exam_assignments"), {
-        ...formData,
+        course: formData.course,
+        date: formData.date,
+        time: formData.time,
+        room: formData.room,
+        invigilatorName: formData.invigilator,
         status: "Pending"
       });
       setFormData({ course: "", date: "", time: "", room: "", invigilator: "" });
@@ -260,7 +268,6 @@ function AssignInvigilator() {
             </thead>
             <tbody>
               <tr className="bg-white">
-
                 <td className="p-2 border border-gray-300">
                   <select
                     name="course"
@@ -367,7 +374,6 @@ function AssignInvigilator() {
                     )}
                   </div>
                 </td>
-
               </tr>
             </tbody>
           </table>
