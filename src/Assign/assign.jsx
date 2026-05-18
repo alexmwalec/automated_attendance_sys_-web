@@ -7,9 +7,7 @@ import {
   addDoc,
   updateDoc,
   doc,
-  onSnapshot,
-  query,
-  where
+  onSnapshot
 } from "firebase/firestore";
 
 function AssignInvigilator() {
@@ -38,12 +36,7 @@ function AssignInvigilator() {
 
   // Fetch invigilators from "profile" collection (role = "invigilator")
   useEffect(() => {
-    const q = query(
-      collection(db, "profile"),
-      where("role", "==", "invigilator")
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, "profile"), (snapshot) => {
       const names = snapshot.docs.map((d) => {
         const data = d.data();
         return `${data.name} ${data.surname}`.trim();
