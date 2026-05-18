@@ -88,15 +88,16 @@ function AssignInvigilator() {
 
   // Fetch assignments from exam_assignments collection
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "exam_assignments"), (snapshot) => {
-      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      data.sort((a, b) => new Date(a.date) - new Date(b.date));
-      setAssignedInvigilators(data);
-      setLoadingAssignments(false);
-    }, (error) => {
-      console.error("Error fetching assignments:", error);
-      setLoadingAssignments(false);
-    });
+   const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
+  const codes = snapshot.docs
+    .map((d) => d.id)
+    .sort();
+  setAllCourses(codes);
+  setLoadingCourses(false);
+}, (error) => {
+  console.error("Error fetching courses:", error);
+  setLoadingCourses(false);
+});
     return () => unsubscribe();
   }, []);
 
