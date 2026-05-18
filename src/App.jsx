@@ -5,6 +5,8 @@ import Assign from "./Assign/assign";
 import Dashboard from "./Dashboard/Dashboard";
 import Login from "./Login/Login";
 import TestFirebase from "./Test/firebaseTest";
+import Settings from "./components/Settings";
+
 function App() {
   return (
     <Router>
@@ -13,8 +15,9 @@ function App() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/assign" element={<Assign />} />
+        <Route path="/testfirebase" element={<TestFirebase />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/test-firebase" element={<TestFirebase />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </Router>
   );
