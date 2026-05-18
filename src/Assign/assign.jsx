@@ -7,8 +7,7 @@ import {
   addDoc,
   updateDoc,
   doc,
-  onSnapshot,
-  getDocs
+  onSnapshot
 } from "firebase/firestore";
 
 function AssignInvigilator() {
@@ -32,6 +31,14 @@ function AssignInvigilator() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [successToast, setSuccessToast] = useState(null);
   const [errorToast, setErrorToast] = useState(null);
+
+  // Filters
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterInvigilator, setFilterInvigilator] = useState("");
+  const [filterCourse, setFilterCourse] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+
   const suggestionRef = useRef(null);
   const successToastTimerRef = useRef(null);
   const errorToastTimerRef = useRef(null);
@@ -111,6 +118,26 @@ function AssignInvigilator() {
     };
   }, []);
 
+  // Apply filters
+  const filteredAssignments = assignedInvigilators.filter((item) => {
+    if (filterStatus && item.status !== filterStatus) return false;
+    if (filterInvigilator && !item.invigilator.toLowerCase().includes(filterInvigilator.toLowerCase())) return false;
+    if (filterCourse && item.course !== filterCourse) return false;
+    if (filterDateFrom && item.date < filterDateFrom) return false;
+    if (filterDateTo && item.date > filterDateTo) return false;
+    return true;
+  });
+
+  const hasActiveFilters = filterStatus || filterInvigilator || filterCourse || filterDateFrom || filterDateTo;
+
+  const clearFilters = () => {
+    setFilterStatus("");
+    setFilterInvigilator("");
+    setFilterCourse("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+  };
+
   const recentInvigilators = [
     ...new Map(
       [...assignedInvigilators].reverse().map((a) => [a.invigilator, a.invigilator])
@@ -132,7 +159,6 @@ function AssignInvigilator() {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-
     if (name === "invigilator") {
       const q = value.trim().toLowerCase();
       if (q === "") {
@@ -174,7 +200,6 @@ function AssignInvigilator() {
       alert("Please fill in all fields before assigning.");
       return;
     }
-
     const invigilatorBusy = assignedInvigilators.find(
       (a) =>
         a.invigilator.toLowerCase() === formData.invigilator.toLowerCase() &&
@@ -182,12 +207,9 @@ function AssignInvigilator() {
         a.time === formData.time
     );
     if (invigilatorBusy) {
-      triggerErrorToast(
-        `${formData.invigilator} is already assigned to ${invigilatorBusy.course} at ${invigilatorBusy.time} on ${invigilatorBusy.date}.`
-      );
+      triggerErrorToast(`${formData.invigilator} is already assigned to ${invigilatorBusy.course} at ${invigilatorBusy.time} on ${invigilatorBusy.date}.`);
       return;
     }
-
     const exactDuplicate = assignedInvigilators.find(
       (a) =>
         a.invigilator.toLowerCase() === formData.invigilator.toLowerCase() &&
@@ -195,12 +217,9 @@ function AssignInvigilator() {
         a.date === formData.date
     );
     if (exactDuplicate) {
-      triggerErrorToast(
-        `${formData.invigilator} is already assigned to ${formData.course} on ${formData.date}.`
-      );
+      triggerErrorToast(`${formData.invigilator} is already assigned to ${formData.course} on ${formData.date}.`);
       return;
     }
-
     try {
       await addDoc(collection(db, "exam_assignments"), {
         course: formData.course,
@@ -220,7 +239,7 @@ function AssignInvigilator() {
   };
 
   const handleMarkDone = async (index) => {
-    const item = assignedInvigilators[index];
+    const item = filteredAssignments[index];
     try {
       await updateDoc(doc(db, "exam_assignments", item.id), { status: "Done" });
       triggerSuccessToast(`${item.course} invigilation marked as done.`);
@@ -269,60 +288,23 @@ function AssignInvigilator() {
             <tbody>
               <tr className="bg-white">
                 <td className="p-2 border border-gray-300">
-                  <select
-                    name="course"
-                    value={formData.course}
-                    onChange={handleFormChange}
-                    disabled={loadingCourses}
-                    className="w-full px-2 py-1 text-sm"
-                  >
-                    <option value="" disabled hidden>
-                      {loadingCourses ? "Loading..." : "Select Course"}
-                    </option>
-                    {allCourses.map((code) => (
-                      <option key={code} value={code}>{code}</option>
-                    ))}
+                  <select name="course" value={formData.course} onChange={handleFormChange} disabled={loadingCourses} className="w-full px-2 py-1 text-sm">
+                    <option value="" disabled hidden>{loadingCourses ? "Loading..." : "Select Course"}</option>
+                    {allCourses.map((code) => (<option key={code} value={code}>{code}</option>))}
                   </select>
                 </td>
-
                 <td className="p-2 border border-gray-300">
-                  <input
-                    type="date"
-                    name="date"
-                    value={formData.date}
-                    onChange={handleFormChange}
-                    min={today}
-                    className="w-full px-2 py-1 text-sm"
-                  />
+                  <input type="date" name="date" value={formData.date} onChange={handleFormChange} min={today} className="w-full px-2 py-1 text-sm" />
                 </td>
-
                 <td className="p-2 border border-gray-300">
-                  <input
-                    type="time"
-                    name="time"
-                    value={formData.time}
-                    onChange={handleFormChange}
-                    className="w-full px-2 py-1 text-sm"
-                  />
+                  <input type="time" name="time" value={formData.time} onChange={handleFormChange} className="w-full px-2 py-1 text-sm" />
                 </td>
-
                 <td className="p-2 border border-gray-300">
-                  <select
-                    name="room"
-                    value={formData.room}
-                    onChange={handleFormChange}
-                    disabled={loadingRooms}
-                    className="w-full px-2 py-1 text-sm"
-                  >
-                    <option value="" disabled hidden>
-                      {loadingRooms ? "Loading..." : "Select Room"}
-                    </option>
-                    {allRooms.map((name) => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
+                  <select name="room" value={formData.room} onChange={handleFormChange} disabled={loadingRooms} className="w-full px-2 py-1 text-sm">
+                    <option value="" disabled hidden>{loadingRooms ? "Loading..." : "Select Room"}</option>
+                    {allRooms.map((name) => (<option key={name} value={name}>{name}</option>))}
                   </select>
                 </td>
-
                 <td className="p-2 border border-gray-300">
                   <div className="relative" ref={suggestionRef}>
                     <input
@@ -339,17 +321,11 @@ function AssignInvigilator() {
                     {showSuggestions && suggestions.length > 0 && (
                       <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {formData.invigilator.trim() === "" && recentInvigilators.length > 0 && (
-                          <div className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100">
-                            Recent
-                          </div>
+                          <div className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100">Recent</div>
                         )}
                         {suggestions.map((name, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            onMouseDown={() => handleSelectSuggestion(name)}
-                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition-colors flex items-center gap-2"
-                          >
+                          <button key={i} type="button" onMouseDown={() => handleSelectSuggestion(name)}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 transition-colors flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
                               <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
                             </svg>
@@ -357,10 +333,8 @@ function AssignInvigilator() {
                               <span>{name}</span>
                             ) : (
                               <span dangerouslySetInnerHTML={{
-                                __html: name.replace(
-                                  new RegExp(`(${formData.invigilator.trim()})`, "gi"),
-                                  '<mark class="bg-teal-100 text-teal-800 rounded px-0.5">$1</mark>'
-                                )
+                                __html: name.replace(new RegExp(`(${formData.invigilator.trim()})`, "gi"),
+                                  '<mark class="bg-teal-100 text-teal-800 rounded px-0.5">$1</mark>')
                               }} />
                             )}
                           </button>
@@ -384,24 +358,75 @@ function AssignInvigilator() {
           </p>
 
           <div className="flex justify-end mt-4">
-            <button
-              onClick={handleAssign}
-              disabled={!isFormValid}
-              className={`font-semibold px-8 py-2 rounded-full shadow-md transition-colors ${
-                !isFormValid
-                  ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                  : "bg-teal-600 hover:bg-teal-700 text-white cursor-pointer"
-              }`}
-            >
+            <button onClick={handleAssign} disabled={!isFormValid}
+              className={`font-semibold px-8 py-2 rounded-full shadow-md transition-colors ${!isFormValid ? "bg-gray-400 text-gray-600 cursor-not-allowed" : "bg-teal-600 hover:bg-teal-700 text-white cursor-pointer"}`}>
               Assign
             </button>
           </div>
 
+          {/* Assigned Invigilators */}
           <div className="mt-8">
-            <h3 className="text-lg font-semibold text-teal-700 mb-3">Assigned Invigilators</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-teal-700">Assigned Invigilators</h3>
+              {hasActiveFilters && (
+                <button type="button" onClick={clearFilters}
+                  className="text-xs text-red-500 hover:text-red-700 font-semibold underline underline-offset-2 transition-colors">
+                  Clear Filters
+                </button>
+              )}
+            </div>
+
+            {/* Filter Bar */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Done">Done</option>
+              </select>
+
+              <select
+                value={filterCourse}
+                onChange={(e) => setFilterCourse(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">All Courses</option>
+                {[...new Set(assignedInvigilators.map((a) => a.course))].sort().map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+
+              <input
+                type="text"
+                value={filterInvigilator}
+                onChange={(e) => setFilterInvigilator(e.target.value)}
+                placeholder="Search invigilator..."
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+
+              <input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                title="From date"
+              />
+
+              <input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                title="To date"
+              />
+            </div>
+
             {loadingAssignments ? (
               <p className="text-gray-400 text-sm">Loading assignments...</p>
-            ) : assignedInvigilators.length > 0 ? (
+            ) : filteredAssignments.length > 0 ? (
               <table className="w-full min-w-full border border-gray-300">
                 <thead>
                   <tr className="bg-teal-600 text-white text-sm">
@@ -414,7 +439,7 @@ function AssignInvigilator() {
                   </tr>
                 </thead>
                 <tbody>
-                  {assignedInvigilators.map((item, index) => (
+                  {filteredAssignments.map((item, index) => (
                     <tr key={item.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                       <td className="p-2 border border-gray-300">{item.course}</td>
                       <td className="p-2 border border-gray-300">{item.date}</td>
@@ -430,11 +455,8 @@ function AssignInvigilator() {
                             Done
                           </span>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleMarkDone(index)}
-                            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors cursor-pointer"
-                          >
+                          <button type="button" onClick={() => handleMarkDone(index)}
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors cursor-pointer">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                             </svg>
@@ -447,7 +469,9 @@ function AssignInvigilator() {
                 </tbody>
               </table>
             ) : (
-              <p className="text-gray-500 text-sm">No invigilators assigned yet.</p>
+              <p className="text-gray-500 text-sm">
+                {hasActiveFilters ? "No assignments match the selected filters." : "No invigilators assigned yet."}
+              </p>
             )}
           </div>
         </div>
