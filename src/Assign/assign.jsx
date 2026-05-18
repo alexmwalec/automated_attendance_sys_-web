@@ -29,9 +29,9 @@ function AssignInvigilator() {
   const [loadingAssignments, setLoadingAssignments] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [invigilatorError, setInvigilatorError] = useState("");
   const [successToast, setSuccessToast] = useState(null);
   const [errorToast, setErrorToast] = useState(null);
-  const [filterStatus, setFilterStatus] = useState("");
   const [filterInvigilator, setFilterInvigilator] = useState("");
   const [filterCourse, setFilterCourse] = useState("");
 
@@ -42,10 +42,8 @@ function AssignInvigilator() {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Normalize any date string to a consistent Date object for sorting and display
   const parseDate = (dateStr) => {
     if (!dateStr) return new Date(0);
-    // handles "2026-05-18", "25 April, 2025", "25 April 2026", "April 25, 2026" etc.
     const parsed = new Date(dateStr);
     return isNaN(parsed) ? new Date(0) : parsed;
   };
@@ -60,16 +58,17 @@ function AssignInvigilator() {
     });
   };
 
+  // Pull all users from the "users" collection — only these people can be assigned
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "profile"), (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
       const names = snapshot.docs.map((d) => {
         const data = d.data();
-        return `${data.name} ${data.surname}`.trim();
+        return `${data.firstName} ${data.surname}`.trim();
       });
       setAllInvigilators(names);
       setLoadingInvigilators(false);
     }, (error) => {
-      console.error("Error fetching invigilators:", error);
+      console.error("Error fetching users:", error);
       setLoadingInvigilators(false);
     });
     return () => unsubscribe();
@@ -99,6 +98,7 @@ function AssignInvigilator() {
     return () => unsubscribe();
   }, []);
 
+  // Listen to exam assignments in real time, newest dates first
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "exam_assignments"), (snapshot) => {
       const data = snapshot.docs.map((d) => {
@@ -109,11 +109,9 @@ function AssignInvigilator() {
           date: docData.date,
           time: docData.time,
           room: docData.room,
-          invigilator: docData.invigilatorName || docData.invigilator || "",
-          status: docData.status
+          invigilator: docData.invigilatorName || docData.invigilator || ""
         };
       });
-      // Sort descending — newest date on top
       data.sort((a, b) => parseDate(b.date) - parseDate(a.date));
       setAssignedInvigilators(data);
       setLoadingAssignments(false);
@@ -131,17 +129,21 @@ function AssignInvigilator() {
     };
   }, []);
 
+  // Only allow names that exactly match someone in the users collection
+  const isValidInvigilator = (name) =>
+    allInvigilators.some(
+      (n) => n.toLowerCase() === name.trim().toLowerCase()
+    );
+
   const filteredAssignments = assignedInvigilators.filter((item) => {
-    if (filterStatus && item.status !== filterStatus) return false;
     if (filterInvigilator && !item.invigilator.toLowerCase().includes(filterInvigilator.toLowerCase())) return false;
     if (filterCourse && item.course !== filterCourse) return false;
     return true;
   });
 
-  const hasActiveFilters = filterStatus || filterInvigilator || filterCourse;
+  const hasActiveFilters = filterInvigilator || filterCourse;
 
   const clearFilters = () => {
-    setFilterStatus("");
     setFilterInvigilator("");
     setFilterCourse("");
   };
@@ -167,7 +169,9 @@ function AssignInvigilator() {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+
     if (name === "invigilator") {
+      setInvigilatorError("");
       const q = value.trim().toLowerCase();
       if (q === "") {
         setSuggestions(recentInvigilators.length > 0 ? recentInvigilators : allInvigilators.slice(0, 5));
@@ -175,6 +179,19 @@ function AssignInvigilator() {
         setSuggestions(allInvigilators.filter((n) => n.toLowerCase().includes(q)));
       }
       setShowSuggestions(true);
+    }
+  };
+
+  // When the user leaves the field, check if what they typed is a real user
+  const handleInvigilatorBlur = () => {
+    if (!formData.invigilator.trim()) {
+      setInvigilatorError("");
+      return;
+    }
+    if (!isValidInvigilator(formData.invigilator)) {
+      setInvigilatorError("This person is not in the system. Please select a valid user.");
+    } else {
+      setInvigilatorError("");
     }
   };
 
@@ -190,6 +207,7 @@ function AssignInvigilator() {
 
   const handleSelectSuggestion = (name) => {
     setFormData({ ...formData, invigilator: name });
+    setInvigilatorError("");
     setShowSuggestions(false);
   };
 
@@ -208,6 +226,13 @@ function AssignInvigilator() {
       alert("Please fill in all fields before assigning.");
       return;
     }
+
+    // Block if the typed name isn't a real user
+    if (!isValidInvigilator(formData.invigilator)) {
+      setInvigilatorError("This person is not in the system. Please select a valid user.");
+      return;
+    }
+
     const invigilatorBusy = assignedInvigilators.find(
       (a) =>
         a.invigilator.toLowerCase() === formData.invigilator.toLowerCase() &&
@@ -218,6 +243,7 @@ function AssignInvigilator() {
       triggerErrorToast(`${formData.invigilator} is already assigned to ${invigilatorBusy.course} at ${invigilatorBusy.time} on ${invigilatorBusy.date}.`);
       return;
     }
+
     const exactDuplicate = assignedInvigilators.find(
       (a) =>
         a.invigilator.toLowerCase() === formData.invigilator.toLowerCase() &&
@@ -228,16 +254,17 @@ function AssignInvigilator() {
       triggerErrorToast(`${formData.invigilator} is already assigned to ${formData.course} on ${formData.date}.`);
       return;
     }
+
     try {
       await addDoc(collection(db, "exam_assignments"), {
         course: formData.course,
         date: formData.date,
         time: formData.time,
         room: formData.room,
-        invigilatorName: formData.invigilator,
-        status: "Pending"
+        invigilatorName: formData.invigilator
       });
       setFormData({ course: "", date: "", time: "", room: "", invigilator: "" });
+      setInvigilatorError("");
       setShowSuggestions(false);
       triggerSuccessToast(`${formData.invigilator} assigned to ${formData.course} successfully.`);
     } catch (error) {
@@ -246,19 +273,14 @@ function AssignInvigilator() {
     }
   };
 
-  const handleMarkDone = async (index) => {
-    const item = filteredAssignments[index];
-    try {
-      await updateDoc(doc(db, "exam_assignments", item.id), { status: "Done" });
-      triggerSuccessToast(`${item.course} invigilation marked as done.`);
-    } catch (error) {
-      console.error("Error updating status:", error);
-      triggerErrorToast("Could not update status. Please try again.");
-    }
-  };
-
+  // Form is only valid when all fields are filled and the invigilator is a real user
   const isFormValid =
-    formData.course && formData.date && formData.time && formData.room && formData.invigilator;
+    formData.course &&
+    formData.date &&
+    formData.time &&
+    formData.room &&
+    formData.invigilator &&
+    isValidInvigilator(formData.invigilator);
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -313,6 +335,7 @@ function AssignInvigilator() {
                     {allRooms.map((name) => (<option key={name} value={name}>{name}</option>))}
                   </select>
                 </td>
+
                 <td className="p-2 border border-gray-300">
                   <div className="relative" ref={suggestionRef}>
                     <input
@@ -321,11 +344,24 @@ function AssignInvigilator() {
                       value={formData.invigilator}
                       onChange={handleFormChange}
                       onFocus={handleInvigilatorFocus}
-                      className="w-full px-2 py-1 text-sm border border-gray-200 rounded"
-                      placeholder={loadingInvigilators ? "Loading..." : allInvigilators.length === 0 ? "No profiles found" : "Search name..."}
+                      onBlur={handleInvigilatorBlur}
+                      className={`w-full px-2 py-1 text-sm border rounded transition-colors ${
+                        invigilatorError ? "border-red-400 bg-red-50" : "border-gray-200"
+                      }`}
+                      placeholder={loadingInvigilators ? "Loading..." : allInvigilators.length === 0 ? "No users found" : "Search name..."}
                       autoComplete="off"
                       disabled={loadingInvigilators}
                     />
+
+                    {invigilatorError && (
+                      <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 shrink-0">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                        </svg>
+                        {invigilatorError}
+                      </p>
+                    )}
+
                     {showSuggestions && suggestions.length > 0 && (
                       <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {formData.invigilator.trim() === "" && recentInvigilators.length > 0 && (
@@ -349,9 +385,10 @@ function AssignInvigilator() {
                         ))}
                       </div>
                     )}
+
                     {showSuggestions && suggestions.length === 0 && formData.invigilator.trim() !== "" && !loadingInvigilators && (
                       <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-sm text-gray-400">
-                        No invigilator found
+                        No user found matching that name
                       </div>
                     )}
                   </div>
@@ -383,36 +420,18 @@ function AssignInvigilator() {
               )}
             </div>
 
-            {/* Filter Bar */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              >
-                <option value="">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Done">Done</option>
-              </select>
-
-              <select
-                value={filterCourse}
-                onChange={(e) => setFilterCourse(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+              <select value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
                 <option value="">All Courses</option>
                 {[...new Set(assignedInvigilators.map((a) => a.course))].sort().map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
 
-              <input
-                type="text"
-                value={filterInvigilator}
-                onChange={(e) => setFilterInvigilator(e.target.value)}
+              <input type="text" value={filterInvigilator} onChange={(e) => setFilterInvigilator(e.target.value)}
                 placeholder="Search invigilator..."
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             </div>
 
             {loadingAssignments ? (
@@ -426,7 +445,6 @@ function AssignInvigilator() {
                     <th className="p-3 text-left border border-gray-300 whitespace-nowrap">TIME</th>
                     <th className="p-3 text-left border border-gray-300 whitespace-nowrap">VENUE</th>
                     <th className="p-3 text-left border border-gray-300 whitespace-nowrap">INVIGILATOR</th>
-                    <th className="p-3 text-center border border-gray-300 whitespace-nowrap">STATUS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -437,24 +455,6 @@ function AssignInvigilator() {
                       <td className="p-2 border border-gray-300">{item.time}</td>
                       <td className="p-2 border border-gray-300">{item.room}</td>
                       <td className="p-2 border border-gray-300">{item.invigilator}</td>
-                      <td className="p-2 border border-gray-300 text-center">
-                        {item.status === "Done" ? (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                            Done
-                          </span>
-                        ) : (
-                          <button type="button" onClick={() => handleMarkDone(index)}
-                            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors cursor-pointer">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                            </svg>
-                            Pending
-                          </button>
-                        )}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
