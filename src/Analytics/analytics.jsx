@@ -98,7 +98,7 @@ function Analytics() {
           </div>
         )}
 
-        {/* Info Cards - Dynamic based on selections */}
+        {/* Info Cards - Dynamic based on dashboard selections */}
         <div className="flex flex-wrap gap-4 mb-6">
           {activeSelections.length > 0 ? (
             activeSelections.map(([key, value], i) => (
@@ -110,19 +110,9 @@ function Analytics() {
               </div>
             ))
           ) : (
-            [
-              "Program: Computer Science",
-              "Department: Computing",
-              "Year: 4",
-              "Program of Study: BSc Computing"
-            ].map((item, i) => (
-              <div
-                key={i}
-                className="flex-1 min-w-[180px] bg-teal-50 border border-teal-200 rounded-lg p-4 text-center text-sm font-medium text-teal-700"
-              >
-                {item}
-              </div>
-            ))
+            <div className="w-full bg-green-50 border border-green-200 rounded-lg p-4 text-center text-sm text-green-700">
+              No filters selected yet. Use the Dashboard to choose course, year, department, program or student.
+            </div>
           )}
         </div>
 

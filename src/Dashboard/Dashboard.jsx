@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { useRef } from "react";
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, 
   PieChart, Pie, Cell, ResponsiveContainer 
 } from "recharts";
 import { useNavigate } from "react-router-dom";
-import { collection, onSnapshot, query, where, orderBy, startAt, endAt, limit } from "firebase/firestore";
-import { db } from "../firebase"; // 
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "../firebase";
 import Sidebar from "../components/sidebar";
 
 const COLORS = ["#0f766e", "#a37931"];
@@ -103,17 +102,10 @@ function Dashboard() {
     return () => unsubAttendance();
   }, [selections.course]);
 
-  // Debounced search refs and effects
-  const studentUnsubRef = useRef(null);
-  const courseUnsubRef = useRef(null);
+  // Debounced search effects
 
-  // Student (remote) search
+  // Student search using cached students and substring matching
   useEffect(() => {
-    if (studentUnsubRef.current) {
-      studentUnsubRef.current();
-      studentUnsubRef.current = null;
-    }
-
     if (!studentQuery) {
       setStudentResults([]);
       setStudentLoading(false);
@@ -122,35 +114,19 @@ function Dashboard() {
 
     const t = setTimeout(() => {
       setStudentLoading(true);
-      const q = query(
-        collection(db, "students"),
-        orderBy("fullName"),
-        startAt(studentQuery),
-        endAt(studentQuery + "\uf8ff"),
-        limit(10)
-      );
-      studentUnsubRef.current = onSnapshot(q, (snapshot) => {
-        setStudentResults(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setStudentLoading(false);
-      });
+      const queryLower = studentQuery.toLowerCase();
+      const matches = students
+        .filter(s => s.fullName?.toLowerCase().includes(queryLower))
+        .slice(0, 10);
+      setStudentResults(matches);
+      setStudentLoading(false);
     }, 500);
 
-    return () => {
-      clearTimeout(t);
-      if (studentUnsubRef.current) {
-        studentUnsubRef.current();
-        studentUnsubRef.current = null;
-      }
-    };
-  }, [studentQuery]);
+    return () => clearTimeout(t);
+  }, [studentQuery, students]);
 
-  // Course (remote) search
+  // Course search using cached courses and substring matching
   useEffect(() => {
-    if (courseUnsubRef.current) {
-      courseUnsubRef.current();
-      courseUnsubRef.current = null;
-    }
-
     if (!courseQuery) {
       setCourseResults([]);
       setCourseLoading(false);
@@ -159,34 +135,29 @@ function Dashboard() {
 
     const t = setTimeout(() => {
       setCourseLoading(true);
-      const q = query(
-        collection(db, "courses"),
-        orderBy("courseCode"),
-        startAt(courseQuery.toUpperCase()),
-        endAt(courseQuery.toUpperCase() + "\uf8ff"),
-        limit(10)
-      );
-      courseUnsubRef.current = onSnapshot(q, (snapshot) => {
-        setCourseResults(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setCourseLoading(false);
-      });
+      const queryLower = courseQuery.toLowerCase();
+      const matches = courses
+        .filter(c =>
+          c.courseCode?.toLowerCase().includes(queryLower) ||
+          c.title?.toLowerCase().includes(queryLower)
+        )
+        .slice(0, 10);
+      setCourseResults(matches);
+      setCourseLoading(false);
     }, 500);
 
-    return () => {
-      clearTimeout(t);
-      if (courseUnsubRef.current) {
-        courseUnsubRef.current();
-        courseUnsubRef.current = null;
-      }
-    };
-  }, [courseQuery]);
+    return () => clearTimeout(t);
+  }, [courseQuery, courses]);
 
-  // Department and Program (filter metadata arrays)
+  // Department and Program (filter metadata arrays with substring matching)
   useEffect(() => {
     if (!departmentQuery) { setDepartmentResults([]); setDepartmentLoading(false); return; }
     const t = setTimeout(() => {
       setDepartmentLoading(true);
-      const matches = (metadata.departments || []).filter(d => d.toLowerCase().startsWith(departmentQuery.toLowerCase())).slice(0,10);
+      const queryLower = departmentQuery.toLowerCase();
+      const matches = (metadata.departments || [])
+        .filter(d => d.toLowerCase().includes(queryLower))
+        .slice(0,10);
       setDepartmentResults(matches);
       setDepartmentLoading(false);
     }, 300);
@@ -197,12 +168,43 @@ function Dashboard() {
     if (!programQuery) { setProgramResults([]); setProgramLoading(false); return; }
     const t = setTimeout(() => {
       setProgramLoading(true);
-      const matches = (metadata.programs || []).filter(p => p.toLowerCase().startsWith(programQuery.toLowerCase())).slice(0,10);
+      const queryLower = programQuery.toLowerCase();
+      const matches = (metadata.programs || [])
+        .filter(p => p.toLowerCase().includes(queryLower))
+        .slice(0,10);
       setProgramResults(matches);
       setProgramLoading(false);
     }, 300);
     return () => clearTimeout(t);
   }, [programQuery, metadata.programs]);
+
+  const renderHighlighted = (text, query) => {
+    if (!query) return text;
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const parts = [];
+    let lastIndex = 0;
+    let matchIndex = lowerText.indexOf(lowerQuery, lastIndex);
+
+    while (matchIndex !== -1) {
+      if (matchIndex > lastIndex) {
+        parts.push(text.slice(lastIndex, matchIndex));
+      }
+      parts.push(
+        <span key={`${matchIndex}-${query}`} className="bg-gray-200 rounded-sm">
+          {text.slice(matchIndex, matchIndex + query.length)}
+        </span>
+      );
+      lastIndex = matchIndex + query.length;
+      matchIndex = lowerText.indexOf(lowerQuery, lastIndex);
+    }
+
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex));
+    }
+
+    return parts.length ? parts : text;
+  };
 
   const handleChange = (e) => {
     setSelections({ ...selections, [e.target.name]: e.target.value });
@@ -256,7 +258,7 @@ function Dashboard() {
               <ul className="absolute z-20 left-0 right-0 bg-white border rounded mt-1 max-h-48 overflow-auto shadow-lg">
                 {courseResults.map(c => (
                   <li key={c.id} onClick={() => { setSelections(prev => ({ ...prev, course: c.courseCode })); setCourseQuery(""); setCourseResults([]); }} className="px-3 py-2 hover:bg-gray-100 cursor-pointer">
-                    {c.courseCode}{c.title ? ` - ${c.title}` : ""}
+                    {renderHighlighted(c.courseCode, courseQuery)}{c.title ? <> - {renderHighlighted(c.title, courseQuery)}</> : ""}
                   </li>
                 ))}
               </ul>
@@ -292,7 +294,7 @@ function Dashboard() {
               <ul className="absolute z-20 left-0 right-0 bg-white border rounded mt-1 max-h-48 overflow-auto shadow-lg">
                 {departmentResults.map(d => (
                   <li key={d} onClick={() => { setSelections(prev => ({ ...prev, department: d })); setDepartmentQuery(""); setDepartmentResults([]); }} className="px-3 py-2 hover:bg-gray-100 cursor-pointer">
-                    {d}
+                    {renderHighlighted(d, departmentQuery)}
                   </li>
                 ))}
               </ul>
@@ -319,7 +321,7 @@ function Dashboard() {
               <ul className="absolute z-20 left-0 right-0 bg-white border rounded mt-1 max-h-48 overflow-auto shadow-lg">
                 {programResults.map(p => (
                   <li key={p} onClick={() => { setSelections(prev => ({ ...prev, program: p })); setProgramQuery(""); setProgramResults([]); }} className="px-3 py-2 hover:bg-gray-100 cursor-pointer">
-                    {p}
+                    {renderHighlighted(p, programQuery)}
                   </li>
                 ))}
               </ul>
@@ -350,7 +352,7 @@ function Dashboard() {
                     onClick={() => { setSelections(prev => ({ ...prev, student: s.fullName })); setStudentQuery(""); setStudentResults([]); }}
                     className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                   >
-                    {s.fullName}{s.registrationNumber ? ` (${s.registrationNumber})` : ""}
+                    {renderHighlighted(s.fullName, studentQuery)}{s.registrationNumber ? <> ({renderHighlighted(s.registrationNumber, studentQuery)})</> : ""}
                   </li>
                 ))}
               </ul>
