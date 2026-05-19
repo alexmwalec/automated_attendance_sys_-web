@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { useRef } from "react";
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, 
   PieChart, Pie, Cell, ResponsiveContainer 
 } from "recharts";
 import { useNavigate } from "react-router-dom";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where, orderBy, startAt, endAt, limit } from "firebase/firestore";
 import { db } from "../firebase"; // 
 import Sidebar from "../components/sidebar";
 
@@ -34,6 +35,18 @@ function Dashboard() {
     programs: ["Bsc Computer Science", "Bsc Information Systems"],
     sessionTypes: ["Class", "Lab", "Exam"]
   });
+  const [studentQuery, setStudentQuery] = useState("");
+  const [studentResults, setStudentResults] = useState([]);
+  const [studentLoading, setStudentLoading] = useState(false);
+  const [courseQuery, setCourseQuery] = useState("");
+  const [courseResults, setCourseResults] = useState([]);
+  const [courseLoading, setCourseLoading] = useState(false);
+  const [departmentQuery, setDepartmentQuery] = useState("");
+  const [departmentResults, setDepartmentResults] = useState([]);
+  const [departmentLoading, setDepartmentLoading] = useState(false);
+  const [programQuery, setProgramQuery] = useState("");
+  const [programResults, setProgramResults] = useState([]);
+  const [programLoading, setProgramLoading] = useState(false);
 
   // 1. Fetch Dynamic Options (Courses, Students, Metadata)
   useEffect(() => {
@@ -90,6 +103,107 @@ function Dashboard() {
     return () => unsubAttendance();
   }, [selections.course]);
 
+  // Debounced search refs and effects
+  const studentUnsubRef = useRef(null);
+  const courseUnsubRef = useRef(null);
+
+  // Student (remote) search
+  useEffect(() => {
+    if (studentUnsubRef.current) {
+      studentUnsubRef.current();
+      studentUnsubRef.current = null;
+    }
+
+    if (!studentQuery) {
+      setStudentResults([]);
+      setStudentLoading(false);
+      return;
+    }
+
+    const t = setTimeout(() => {
+      setStudentLoading(true);
+      const q = query(
+        collection(db, "students"),
+        orderBy("fullName"),
+        startAt(studentQuery),
+        endAt(studentQuery + "\uf8ff"),
+        limit(10)
+      );
+      studentUnsubRef.current = onSnapshot(q, (snapshot) => {
+        setStudentResults(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setStudentLoading(false);
+      });
+    }, 500);
+
+    return () => {
+      clearTimeout(t);
+      if (studentUnsubRef.current) {
+        studentUnsubRef.current();
+        studentUnsubRef.current = null;
+      }
+    };
+  }, [studentQuery]);
+
+  // Course (remote) search
+  useEffect(() => {
+    if (courseUnsubRef.current) {
+      courseUnsubRef.current();
+      courseUnsubRef.current = null;
+    }
+
+    if (!courseQuery) {
+      setCourseResults([]);
+      setCourseLoading(false);
+      return;
+    }
+
+    const t = setTimeout(() => {
+      setCourseLoading(true);
+      const q = query(
+        collection(db, "courses"),
+        orderBy("courseCode"),
+        startAt(courseQuery.toUpperCase()),
+        endAt(courseQuery.toUpperCase() + "\uf8ff"),
+        limit(10)
+      );
+      courseUnsubRef.current = onSnapshot(q, (snapshot) => {
+        setCourseResults(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setCourseLoading(false);
+      });
+    }, 500);
+
+    return () => {
+      clearTimeout(t);
+      if (courseUnsubRef.current) {
+        courseUnsubRef.current();
+        courseUnsubRef.current = null;
+      }
+    };
+  }, [courseQuery]);
+
+  // Department and Program (filter metadata arrays)
+  useEffect(() => {
+    if (!departmentQuery) { setDepartmentResults([]); setDepartmentLoading(false); return; }
+    const t = setTimeout(() => {
+      setDepartmentLoading(true);
+      const matches = (metadata.departments || []).filter(d => d.toLowerCase().startsWith(departmentQuery.toLowerCase())).slice(0,10);
+      setDepartmentResults(matches);
+      setDepartmentLoading(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [departmentQuery, metadata.departments]);
+
+  useEffect(() => {
+    if (!programQuery) { setProgramResults([]); setProgramLoading(false); return; }
+    const t = setTimeout(() => {
+      setProgramLoading(true);
+      const matches = (metadata.programs || []).filter(p => p.toLowerCase().startsWith(programQuery.toLowerCase())).slice(0,10);
+      setProgramResults(matches);
+      setProgramLoading(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [programQuery, metadata.programs]);
+
   const handleChange = (e) => {
     setSelections({ ...selections, [e.target.name]: e.target.value });
   };
@@ -123,10 +237,25 @@ function Dashboard() {
 
         {/* Dropdowns (Dynamic) */}
         <div className="flex flex-wrap gap-4 mb-6">
-          <select name="course" value={selections.course} onChange={handleChange} className="flex-1 min-w-[150px] border border-teal-500 rounded px-3 py-2">
-            <option value="">Select Course</option>
-            {courses.map(c => <option key={c.id} value={c.courseCode}>{c.courseCode}</option>)}
-          </select>
+          <div className="relative flex-1 min-w-[150px]">
+            <input
+              name="courseSearch"
+              value={courseQuery}
+              onChange={(e) => setCourseQuery(e.target.value)}
+              placeholder={selections.course ? selections.course : "Search Course"}
+              className="w-full border border-teal-500 rounded px-3 py-2"
+            />
+            {courseLoading && <div className="absolute right-2 top-2 text-sm text-gray-500">Searching...</div>}
+            {courseResults.length > 0 && (
+              <ul className="absolute z-20 left-0 right-0 bg-white border rounded mt-1 max-h-48 overflow-auto shadow-lg">
+                {courseResults.map(c => (
+                  <li key={c.id} onClick={() => { setSelections(prev => ({ ...prev, course: c.courseCode })); setCourseQuery(""); setCourseResults([]); }} className="px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                    {c.courseCode}{c.title ? ` - ${c.title}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <select name="sessionType" value={selections.sessionType} onChange={handleChange} className="flex-1 min-w-[150px] border border-teal-500 rounded px-3 py-2">
             <option value="">Session Type</option>
@@ -138,15 +267,71 @@ function Dashboard() {
             {metadata.years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
 
-          <select name="department" value={selections.department} onChange={handleChange} className="flex-1 min-w-[150px] border border-teal-500 rounded px-3 py-2">
-            <option value="">Department</option>
-            {metadata.departments.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
+          <div className="relative flex-1 min-w-[150px]">
+            <input
+              name="departmentSearch"
+              value={departmentQuery}
+              onChange={(e) => setDepartmentQuery(e.target.value)}
+              placeholder={selections.department ? selections.department : "Search Department"}
+              className="w-full border border-teal-500 rounded px-3 py-2"
+            />
+            {departmentLoading && <div className="absolute right-2 top-2 text-sm text-gray-500">Searching...</div>}
+            {departmentResults.length > 0 && (
+              <ul className="absolute z-20 left-0 right-0 bg-white border rounded mt-1 max-h-48 overflow-auto shadow-lg">
+                {departmentResults.map(d => (
+                  <li key={d} onClick={() => { setSelections(prev => ({ ...prev, department: d })); setDepartmentQuery(""); setDepartmentResults([]); }} className="px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                    {d}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
-          <select name="student" value={selections.student} onChange={handleChange} className="flex-1 min-w-[150px] border border-teal-500 rounded px-3 py-2">
-            <option value="">Select Student</option>
-            {students.map(s => <option key={s.id} value={s.fullName}>{s.fullName}</option>)}
-          </select>
+          {/* Program search (inserted between department and student) */}
+          <div className="relative flex-1 min-w-[150px]">
+            <input
+              name="programSearch"
+              value={programQuery}
+              onChange={(e) => setProgramQuery(e.target.value)}
+              placeholder={selections.program ? selections.program : "Search Program"}
+              className="w-full border border-teal-500 rounded px-3 py-2"
+            />
+            {programLoading && <div className="absolute right-2 top-2 text-sm text-gray-500">Searching...</div>}
+            {programResults.length > 0 && (
+              <ul className="absolute z-20 left-0 right-0 bg-white border rounded mt-1 max-h-48 overflow-auto shadow-lg">
+                {programResults.map(p => (
+                  <li key={p} onClick={() => { setSelections(prev => ({ ...prev, program: p })); setProgramQuery(""); setProgramResults([]); }} className="px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="relative flex-1 min-w-[150px]">
+            <input
+              name="studentSearch"
+              value={studentQuery}
+              onChange={(e) => setStudentQuery(e.target.value)}
+              placeholder={selections.student ? selections.student : "Search Student"}
+              className="w-full border border-teal-500 rounded px-3 py-2"
+            />
+            {studentLoading && <div className="absolute right-2 top-2 text-sm text-gray-500">Searching...</div>}
+
+            {studentResults.length > 0 && (
+              <ul className="absolute z-20 left-0 right-0 bg-white border rounded mt-1 max-h-48 overflow-auto shadow-lg">
+                {studentResults.map(s => (
+                  <li
+                    key={s.id}
+                    onClick={() => { setSelections(prev => ({ ...prev, student: s.fullName })); setStudentQuery(""); setStudentResults([]); }}
+                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                  >
+                    {s.fullName}{s.registrationNumber ? ` (${s.registrationNumber})` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         {/* Selected Filter Chips */}
