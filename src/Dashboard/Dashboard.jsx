@@ -361,9 +361,9 @@ function Dashboard() {
         </div>
 
         {/* Selected Filter Chips */}
-        <div className="flex flex-wrap gap-4 mb-6 justify-center">
+        <div className="flex flex-wrap gap-2 mb-6 justify-center">
           {selectedCards.length > 0 ? selectedCards.map((card, idx) => (
-            <div key={idx} className="flex-1 min-w-[160px] max-w-[380px] bg-teal-50 border border-teal-200 rounded-lg px-4 py-2 text-sm font-semibold text-teal-800 text-center">
+            <div key={idx} className="inline-flex items-center mx-1 bg-teal-50 border border-teal-200 rounded-full px-3 py-1 text-sm font-semibold text-teal-800">
               {card.label}
             </div>
           )) : null}
