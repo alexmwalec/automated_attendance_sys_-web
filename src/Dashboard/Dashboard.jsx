@@ -223,8 +223,8 @@ function Dashboard() {
 
       <main className="flex-1 p-6 overflow-y-auto">
         {/* Header */}
-        <div className="bg-teal-600 text-white px-4 py-3 rounded-lg mb-4 flex justify-between items-center relative">
-          <span className="font-bold">Attendance Analytics Dashboard</span>
+        <div className="bg-teal-500 text-white px-4 py-3 rounded-lg mb-4 flex justify-between items-center relative">
+          <span>Attendance Analytics Dashboard</span>
           <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="hover:bg-teal-700 p-2 rounded-full">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
