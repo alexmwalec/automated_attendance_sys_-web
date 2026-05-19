@@ -240,9 +240,15 @@ function Dashboard() {
           <div className="relative flex-1 min-w-[150px]">
             <input
               name="courseSearch"
-              value={courseQuery}
-              onChange={(e) => setCourseQuery(e.target.value)}
-              placeholder={selections.course ? selections.course : "Search Course"}
+              value={courseQuery || selections.course}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (selections.course) {
+                  setSelections(prev => ({ ...prev, course: "" }));
+                }
+                setCourseQuery(value);
+              }}
+              placeholder="Search Course"
               className="w-full border border-teal-500 rounded px-3 py-2"
             />
             {courseLoading && <div className="absolute right-2 top-2 text-sm text-gray-500">Searching...</div>}
@@ -270,9 +276,15 @@ function Dashboard() {
           <div className="relative flex-1 min-w-[150px]">
             <input
               name="departmentSearch"
-              value={departmentQuery}
-              onChange={(e) => setDepartmentQuery(e.target.value)}
-              placeholder={selections.department ? selections.department : "Search Department"}
+              value={departmentQuery || selections.department}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (selections.department) {
+                  setSelections(prev => ({ ...prev, department: "" }));
+                }
+                setDepartmentQuery(value);
+              }}
+              placeholder="Search Department"
               className="w-full border border-teal-500 rounded px-3 py-2"
             />
             {departmentLoading && <div className="absolute right-2 top-2 text-sm text-gray-500">Searching...</div>}
@@ -291,9 +303,15 @@ function Dashboard() {
           <div className="relative flex-1 min-w-[150px]">
             <input
               name="programSearch"
-              value={programQuery}
-              onChange={(e) => setProgramQuery(e.target.value)}
-              placeholder={selections.program ? selections.program : "Search Program"}
+              value={programQuery || selections.program}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (selections.program) {
+                  setSelections(prev => ({ ...prev, program: "" }));
+                }
+                setProgramQuery(value);
+              }}
+              placeholder="Search Program"
               className="w-full border border-teal-500 rounded px-3 py-2"
             />
             {programLoading && <div className="absolute right-2 top-2 text-sm text-gray-500">Searching...</div>}
@@ -311,9 +329,15 @@ function Dashboard() {
           <div className="relative flex-1 min-w-[150px]">
             <input
               name="studentSearch"
-              value={studentQuery}
-              onChange={(e) => setStudentQuery(e.target.value)}
-              placeholder={selections.student ? selections.student : "Search Student"}
+              value={studentQuery || selections.student}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (selections.student) {
+                  setSelections(prev => ({ ...prev, student: "" }));
+                }
+                setStudentQuery(value);
+              }}
+              placeholder="Search Student"
               className="w-full border border-teal-500 rounded px-3 py-2"
             />
             {studentLoading && <div className="absolute right-2 top-2 text-sm text-gray-500">Searching...</div>}
