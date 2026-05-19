@@ -191,7 +191,7 @@ function Dashboard() {
         parts.push(text.slice(lastIndex, matchIndex));
       }
       parts.push(
-        <span key={`${matchIndex}-${query}`} className="bg-gray-200 rounded-sm">
+        <span key={`${matchIndex}-${query}`} className="bg-gray-200 px-1 rounded">
           {text.slice(matchIndex, matchIndex + query.length)}
         </span>
       );
@@ -361,12 +361,12 @@ function Dashboard() {
         </div>
 
         {/* Selected Filter Chips */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {selectedCards.map((card, idx) => (
-            <div key={idx} className="bg-teal-100 text-teal-800 px-3 py-1 rounded-full text-xs font-semibold">
+        <div className="flex flex-wrap gap-4 mb-6 justify-center">
+          {selectedCards.length > 0 ? selectedCards.map((card, idx) => (
+            <div key={idx} className="flex-1 min-w-[160px] max-w-[380px] bg-teal-50 border border-teal-200 rounded-lg px-4 py-2 text-sm font-semibold text-teal-800 text-center">
               {card.label}
             </div>
-          ))}
+          )) : null}
         </div>
 
         {/* Visualizations */}
