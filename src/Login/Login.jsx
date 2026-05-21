@@ -66,7 +66,7 @@ function Login() {
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-teal-700 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-teal-800"
+            className="w-full rounded-xl bg-teal-700 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-teal-500"
           >
             Log In
           </button>
