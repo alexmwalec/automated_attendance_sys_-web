@@ -11,7 +11,7 @@ import Sidebar from "../components/sidebar";
 
 // Palette 
 const PRESENT_COLOR = "#10b981";  // emerald-500
-const ABSENT_COLOR  = "#f43f5e";  // rose-500
+const ABSENT_COLOR  = "#ef4444";  // red-500
 const TEAL          = "#0d9488";
 const TEAL_LIGHT    = "#ccfbf1";
 
@@ -84,7 +84,7 @@ function Combobox({ placeholder, value, onChange, onSelect, results, loading }) 
 }
 
 //  Main Dashboard 
-export default function Dashboard() {
+export default function Dashboard({ analyticsMode = false }) {
   const navigate = useNavigate();
 
   // Raw Firestore data
@@ -98,7 +98,7 @@ export default function Dashboard() {
 
   // ── Filters ──
   const [selCourse,     setSelCourse]     = useState(null);   // {id, label}
-  const [selYear,       setSelYear]       = useState("");
+  const [selYear,       setSelYear]       = useState("all");
   const [selDept,       setSelDept]       = useState(null);
   const [selProgram,    setSelProgram]    = useState(null);
   const [selStudent,    setSelStudent]    = useState(null);   // {regNo, label}
@@ -197,7 +197,7 @@ export default function Dashboard() {
     }
 
     // filter by year: match student year
-    if (selYear) {
+    if (selYear && selYear !== "all") {
       const regNosInYear = new Set(students.filter(s => String(s.year) === String(selYear)).map(s => s.regNo));
       return rows.filter(r => regNosInYear.has(r.regNo));
     }
@@ -231,6 +231,29 @@ export default function Dashboard() {
     });
     return Object.values(map).sort((a, b) => (b.Present + b.Absent) - (a.Present + a.Absent)).slice(0, 10);
   }, [flatEntries]);
+
+  const byDepartmentData = useMemo(() => {
+    const courseDept = new Map(courses.map(c => [c.id, c.department || "Unassigned"]));
+    const map = {};
+    flatEntries.forEach(e => {
+      const department = courseDept.get(e.courseCode) || "Unassigned";
+      if (!map[department]) map[department] = { department, Present: 0, Absent: 0 };
+      e.status === "Present" ? map[department].Present++ : map[department].Absent++;
+    });
+    return Object.values(map).sort((a, b) => (b.Present + b.Absent) - (a.Present + a.Absent)).slice(0, 8);
+  }, [flatEntries, courses]);
+
+  const byYearData = useMemo(() => {
+    const studentYear = new Map(students.map(s => [s.regNo, s.year || "Unknown"]));
+    const map = {};
+    flatEntries.forEach(e => {
+      const year = studentYear.get(e.regNo) || "Unknown";
+      const label = year === "Unknown" ? "Unknown" : `Year ${year}`;
+      if (!map[label]) map[label] = { year: label, Present: 0, Absent: 0 };
+      e.status === "Present" ? map[label].Present++ : map[label].Absent++;
+    });
+    return Object.values(map).sort((a, b) => a.year.localeCompare(b.year));
+  }, [flatEntries, students]);
 
   // Chart 3: pie
   const pieData = [
@@ -291,7 +314,7 @@ export default function Dashboard() {
 
   // Clear all filters
   const clearAll = useCallback(() => {
-    setSelCourse(null); setSelYear(""); setSelDept(null);
+    setSelCourse(null); setSelYear("all"); setSelDept(null);
     setSelProgram(null); setSelStudent(null);
     setCourseQ(""); setDeptQ(""); setProgramQ(""); setStudentQ("");
   }, []);
@@ -299,7 +322,7 @@ export default function Dashboard() {
   // Active chips
   const chips = [
     selCourse   && { key: "course",   label: `Course: ${selCourse.id}`,     clear: () => { setSelCourse(null);   setCourseQ("");  } },
-    selYear     && { key: "year",     label: `Year: ${selYear}`,             clear: () => setSelYear("") },
+    selYear !== "all" && { key: "year", label: `Year: ${selYear}`, clear: () => setSelYear("all") },
     selDept     && { key: "dept",     label: `Dept: ${selDept.label}`,       clear: () => { setSelDept(null);     setDeptQ("");    } },
     selProgram  && { key: "program",  label: `Program: ${selProgram.label}`, clear: () => { setSelProgram(null);  setProgramQ(""); } },
     selStudent  && { key: "student",  label: `Student: ${selStudent.label}`, clear: () => { setSelStudent(null);  setStudentQ(""); } },
@@ -316,8 +339,12 @@ export default function Dashboard() {
         <div
           className="relative mb-5 flex flex-col gap-3 rounded-2xl bg-teal-500 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
-            <h1 className="text-white text-lg  tracking-tight">Attendance Analytics</h1>
-            <p className="text-teal-100 text-xs mt-0.5">Real-time attendance insights</p>
+            <h1 className="text-white text-lg tracking-tight">
+              {analyticsMode ? "Attendance Analytics" : "Attendance Dashboard"}
+            </h1>
+            <p className="text-teal-100 text-xs mt-0.5">
+              {analyticsMode ? "Dashboard insights plus deeper risk and cohort analysis" : "Real-time attendance insights"}
+            </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
             {hasFilter && (
@@ -376,7 +403,7 @@ export default function Dashboard() {
               onChange={e => setSelYear(e.target.value)}
               className="w-full rounded-xl border border-teal-400 bg-white px-3 py-2 text-sm shadow-sm outline-none"
             >
-              <option value="">All Years</option>
+              <option value="all">All Years</option>
               {["1","2","3","4","5"].map(y => (
                 <option key={y} value={y}>Year {y}</option>
               ))}
@@ -422,7 +449,7 @@ export default function Dashboard() {
                   className="inline-flex items-center gap-1.5 bg-teal-50 border border-teal-200 text-teal-800 text-xs font-semibold px-3 py-1 rounded-full"
                 >
                   {chip.label}
-                  <button onClick={chip.clear} className="text-teal-500 hover:text-rose-500 transition">✕</button>
+                  <button onClick={chip.clear} className="text-teal-500 hover:text-red-500 transition">✕</button>
                 </span>
               ))}
             </div>
@@ -444,7 +471,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            {/* ── Stat Cards ── */}
+            {/* Stat Cards */}
             <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 label="Total Records"
@@ -472,7 +499,7 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* ── Student profile panel (only when student selected) ── */}
+            {/* Student profile panel (only when student selected) */}
             {selStudent && studentProfile && (
               <div className="mb-5 overflow-x-auto rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -610,6 +637,51 @@ export default function Dashboard() {
                 </ResponsiveContainer>
                 </div>
               </div>
+            )}
+
+            {analyticsMode && (
+              <>
+                <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+                  {byDepartmentData.length > 0 && (
+                    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                      <h3 className="mb-4 text-sm font-bold text-gray-700">Attendance by Department</h3>
+                      <div className="min-w-[520px]">
+                        <ResponsiveContainer width="100%" height={260}>
+                          <BarChart data={byDepartmentData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                            <XAxis dataKey="department" tick={{ fontSize: 11 }} tickLine={false} />
+                            <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                            <Bar dataKey="Present" fill={PRESENT_COLOR} radius={[4, 4, 0, 0]} maxBarSize={36} />
+                            <Bar dataKey="Absent" fill={ABSENT_COLOR} radius={[4, 4, 0, 0]} maxBarSize={36} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+
+                  {byYearData.length > 0 && (
+                    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                      <h3 className="mb-4 text-sm font-bold text-gray-700">Attendance by Year</h3>
+                      <div className="min-w-[520px]">
+                        <ResponsiveContainer width="100%" height={260}>
+                          <BarChart data={byYearData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                            <XAxis dataKey="year" tick={{ fontSize: 11 }} tickLine={false} />
+                            <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                            <Bar dataKey="Present" fill={PRESENT_COLOR} radius={[4, 4, 0, 0]} maxBarSize={36} />
+                            <Bar dataKey="Absent" fill={ABSENT_COLOR} radius={[4, 4, 0, 0]} maxBarSize={36} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+              </>
             )}
           </>
         )}
