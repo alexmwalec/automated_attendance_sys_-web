@@ -350,7 +350,7 @@ export default function Dashboard({ analyticsMode = false }) {
             {hasFilter && (
               <button
                 onClick={clearAll}
-                className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition"
+                className="text-xs bg-white/20 hover:bg-teal-100/30 text-white px-3 py-1.5 rounded-lg transition"
               >
                 Clear filters
               </button>
@@ -358,7 +358,7 @@ export default function Dashboard({ analyticsMode = false }) {
             <button
               type="button"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition"
+              className="w-9 h-9 rounded-full bg-white/20 hover:bg-teal-100/30 flex items-center justify-center text-white transition"
               aria-label="Open profile menu"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -401,7 +401,7 @@ export default function Dashboard({ analyticsMode = false }) {
             <select
               value={selYear}
               onChange={e => setSelYear(e.target.value)}
-              className="w-full rounded-xl border border-teal-400 bg-white px-3 py-2 text-sm shadow-sm outline-none"
+              className="w-full rounded-xl border border-teal-400 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
             >
               <option value="all">All Years</option>
               {["1","2","3","4","5"].map(y => (
@@ -449,7 +449,7 @@ export default function Dashboard({ analyticsMode = false }) {
                   className="inline-flex items-center gap-1.5 bg-teal-50 border border-teal-200 text-teal-800 text-xs font-semibold px-3 py-1 rounded-full"
                 >
                   {chip.label}
-                  <button onClick={chip.clear} className="text-teal-500 hover:text-red-500 transition">✕</button>
+                  <button onClick={chip.clear} className="text-teal-500 hover:text-teal-700 transition">✕</button>
                 </span>
               ))}
             </div>

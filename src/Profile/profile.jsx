@@ -214,7 +214,7 @@ function Profile() {
         {/* Header */}
         <div className="relative mb-4 flex items-center justify-between rounded-lg bg-teal-500 px-4 py-3 text-white">
           <span>Profile</span>
-          <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 hover:bg-teal-600">
+          <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 hover:bg-teal-400">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
             </svg>
@@ -254,7 +254,7 @@ function Profile() {
                 name="name"
                 value={formData.name}
                 onChange={handleFormChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
                 placeholder="Enter name"
               />
             </div>
@@ -267,7 +267,7 @@ function Profile() {
                 name="surname"
                 value={formData.surname}
                 onChange={handleFormChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
                 placeholder="Enter surname"
               />
             </div>
@@ -335,7 +335,7 @@ function Profile() {
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
             {editingIndex !== null && (
               <button type="button" onClick={handleCancelEdit}
-                className="rounded-full bg-gray-200 px-6 py-2 font-semibold text-gray-700 shadow-md transition-colors hover:bg-gray-300">
+                className="rounded-full bg-gray-200 px-6 py-2 font-semibold text-gray-700 shadow-md transition-colors hover:bg-teal-100">
                 Cancel
               </button>
             )}
@@ -345,7 +345,7 @@ function Profile() {
               disabled={!isFormValid}
               className={`rounded-full px-6 py-2 font-semibold shadow-md transition-colors ${
                 isFormValid
-                  ? "bg-teal-600 hover:bg-teal-700 text-white cursor-pointer"
+                  ? "bg-teal-600 hover:bg-teal-500 text-white cursor-pointer"
                   : "bg-gray-300 text-gray-600 cursor-not-allowed"
               }`}
             >
@@ -389,7 +389,7 @@ function Profile() {
                     <td className="p-2 border border-gray-300">
                       <div className="flex items-center justify-center gap-3">
                         <button type="button" onClick={() => handleEdit(index)} title="Edit"
-                          className="text-teal-600 hover:text-teal-800 transition-colors">
+                          className="text-teal-600 hover:text-teal-500 transition-colors">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
                           </svg>
@@ -436,7 +436,7 @@ function Profile() {
             </button>
           )}
           <button type="button" onClick={handleDismissToast}
-            className="text-teal-200 hover:text-white transition-colors ml-1" title="Dismiss">
+            className="text-teal-200 hover:text-teal-100 transition-colors ml-1" title="Dismiss">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>

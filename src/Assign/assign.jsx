@@ -289,7 +289,7 @@ function AssignInvigilator() {
       <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="relative mb-4 flex items-center justify-between rounded-lg bg-teal-500 px-4 py-3 text-white">
           <span>Assign Invigilator</span>
-          <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 hover:bg-teal-600">
+          <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 hover:bg-teal-400">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
             </svg>
@@ -319,19 +319,19 @@ function AssignInvigilator() {
             <tbody>
               <tr className="bg-white">
                 <td className="p-2 border border-gray-300">
-                  <select name="course" value={formData.course} onChange={handleFormChange} disabled={loadingCourses} className="w-full px-2 py-1 text-sm">
+                  <select name="course" value={formData.course} onChange={handleFormChange} disabled={loadingCourses} className="w-full px-2 py-1 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100">
                     <option value="" disabled hidden>{loadingCourses ? "Loading..." : "Select Course"}</option>
                     {allCourses.map((code) => (<option key={code} value={code}>{code}</option>))}
                   </select>
                 </td>
                 <td className="p-2 border border-gray-300">
-                  <input type="date" name="date" value={formData.date} onChange={handleFormChange} min={today} className="w-full px-2 py-1 text-sm" />
+                  <input type="date" name="date" value={formData.date} onChange={handleFormChange} min={today} className="w-full px-2 py-1 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
                 </td>
                 <td className="p-2 border border-gray-300">
-                  <input type="time" name="time" value={formData.time} onChange={handleFormChange} className="w-full px-2 py-1 text-sm" />
+                  <input type="time" name="time" value={formData.time} onChange={handleFormChange} className="w-full px-2 py-1 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
                 </td>
                 <td className="p-2 border border-gray-300">
-                  <select name="room" value={formData.room} onChange={handleFormChange} disabled={loadingRooms} className="w-full px-2 py-1 text-sm">
+                  <select name="room" value={formData.room} onChange={handleFormChange} disabled={loadingRooms} className="w-full px-2 py-1 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100">
                     <option value="" disabled hidden>{loadingRooms ? "Loading..." : "Select Room"}</option>
                     {allRooms.map((name) => (<option key={name} value={name}>{name}</option>))}
                   </select>
@@ -406,7 +406,7 @@ function AssignInvigilator() {
 
           <div className="flex justify-end mt-4">
             <button onClick={handleAssign} disabled={!isFormValid}
-              className={`font-semibold px-8 py-2 rounded-full shadow-md transition-colors ${!isFormValid ? "bg-gray-400 text-gray-600 cursor-not-allowed" : "bg-teal-600 hover:bg-teal-700 text-white cursor-pointer"}`}>
+              className={`font-semibold px-8 py-2 rounded-full shadow-md transition-colors ${!isFormValid ? "bg-gray-400 text-gray-600 cursor-not-allowed" : "bg-teal-600 hover:bg-teal-500 text-white cursor-pointer"}`}>
               Assign
             </button>
           </div>
@@ -424,7 +424,7 @@ function AssignInvigilator() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
               <select value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100">
                 <option value="">All Courses</option>
                 {[...new Set(assignedInvigilators.map((a) => a.course))].sort().map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -433,7 +433,7 @@ function AssignInvigilator() {
 
               <input type="text" value={filterInvigilator} onChange={(e) => setFilterInvigilator(e.target.value)}
                 placeholder="Search invigilator..."
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100" />
             </div>
 
             {loadingAssignments ? (
@@ -479,7 +479,7 @@ function AssignInvigilator() {
           </svg>
           <span className="text-sm">{successToast.message}</span>
           <button type="button" onClick={() => { clearTimeout(successToastTimerRef.current); setSuccessToast(null); }}
-            className="text-teal-200 hover:text-white transition-colors ml-1">
+            className="text-teal-200 hover:text-teal-100 transition-colors ml-1">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
@@ -495,7 +495,7 @@ function AssignInvigilator() {
           </svg>
           <span className="text-sm">{errorToast.message}</span>
           <button type="button" onClick={() => { clearTimeout(errorToastTimerRef.current); setErrorToast(null); }}
-            className="text-red-200 hover:text-white transition-colors ml-1">
+            className="text-red-200 hover:text-teal-100 transition-colors ml-1">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
