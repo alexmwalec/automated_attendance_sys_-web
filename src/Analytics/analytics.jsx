@@ -44,15 +44,15 @@ function Analytics() {
   const activeSelections = Object.entries(selections).filter(([_, value]) => value);
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex min-h-screen flex-col bg-gray-100 sm:h-screen sm:flex-row">
 
       <Sidebar />
 
       {/* Main Content */}
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
 
         {/* Header */}
-        <div className="bg-teal-500 text-white px-4 py-3 rounded-lg mb-4 flex justify-between items-center relative">
+        <div className="relative mb-4 flex items-center justify-between rounded-lg bg-teal-500 px-4 py-3 text-white">
           <span>Analytics</span>
           <button
             type="button"
@@ -64,7 +64,7 @@ function Analytics() {
             </svg>
           </button>
           {showProfileMenu && (
-            <div className="absolute right-4 top-full mt-2 w-20 h-11 rounded-xl bg-teal-100 text-left shadow-lg ring-1 ring-black ring-opacity-5">
+            <div className="absolute right-4 top-full z-40 mt-2 h-11 w-20 rounded-xl bg-teal-100 text-left shadow-lg ring-1 ring-black ring-opacity-5">
               <button
                 type="button"
                 onClick={() => {
@@ -99,12 +99,12 @@ function Analytics() {
         )}
 
         {/* Info Cards - Dynamic based on dashboard selections */}
-        <div className="flex flex-wrap gap-4 mb-6">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {activeSelections.length > 0 ? (
             activeSelections.map(([key, value], i) => (
               <div
                 key={i}
-                className="flex-1 min-w-[180px] bg-teal-50 border border-teal-200 rounded-lg p-4 text-center text-sm font-medium text-teal-700"
+                className="rounded-lg border border-teal-200 bg-teal-50 p-4 text-center text-sm font-medium text-teal-700"
               >
                 {getLabel(key)}: {value}
               </div>
@@ -116,7 +116,7 @@ function Analytics() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200 h-[calc(100vh-6.5rem)]">
+        <div className="h-[70vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:h-[calc(100vh-6.5rem)]">
           <iframe
             src={supersetDashboardUrl}
             title="Superset Analytics Dashboard"

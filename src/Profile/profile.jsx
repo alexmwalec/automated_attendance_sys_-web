@@ -207,12 +207,12 @@ function Profile() {
     formData.role;
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex min-h-screen flex-col bg-gray-100 sm:h-screen sm:flex-row">
       <Sidebar />
 
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
         {/* Header */}
-        <div className="bg-teal-500 text-white px-4 py-3 rounded-lg mb-4 flex justify-between items-center relative">
+        <div className="relative mb-4 flex items-center justify-between rounded-lg bg-teal-500 px-4 py-3 text-white">
           <span>Profile</span>
           <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 hover:bg-teal-600">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
@@ -220,7 +220,7 @@ function Profile() {
             </svg>
           </button>
           {showProfileMenu && (
-            <div className="absolute right-4 top-full mt-2 w-20 h-11 rounded-xl bg-teal-100 text-left shadow-lg ring-1 ring-black ring-opacity-5">
+            <div className="absolute right-4 top-full z-40 mt-2 h-11 w-20 rounded-xl bg-teal-100 text-left shadow-lg ring-1 ring-black ring-opacity-5">
               <button type="button" onClick={() => { setShowProfileMenu(false); navigate("/"); }}
                 className="w-full px-4 py-3 text-sm text-slate-700 hover:bg-teal-50 transition-colors rounded-lg">
                 Logout
@@ -332,10 +332,10 @@ function Profile() {
 
           </div>
 
-          <div className="flex justify-end gap-3 mt-6">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
             {editingIndex !== null && (
               <button type="button" onClick={handleCancelEdit}
-                className="px-6 py-2 rounded-full font-semibold shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
+                className="rounded-full bg-gray-200 px-6 py-2 font-semibold text-gray-700 shadow-md transition-colors hover:bg-gray-300">
                 Cancel
               </button>
             )}
@@ -343,7 +343,7 @@ function Profile() {
               type="button"
               onClick={handleAddUser}
               disabled={!isFormValid}
-              className={`px-6 py-2 rounded-full font-semibold shadow-md transition-colors ${
+              className={`rounded-full px-6 py-2 font-semibold shadow-md transition-colors ${
                 isFormValid
                   ? "bg-teal-600 hover:bg-teal-700 text-white cursor-pointer"
                   : "bg-gray-300 text-gray-600 cursor-not-allowed"
@@ -357,7 +357,8 @@ function Profile() {
         {/* Table */}
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <h2 className="text-xl font-semibold text-teal-700 mb-4">Profiles</h2>
-          <table className="w-full min-w-full border border-gray-300">
+          <div className="overflow-x-auto">
+          <table className="min-w-[820px] w-full border border-gray-300">
             <thead>
               <tr className="bg-teal-600 text-white text-sm">
                 <th className="p-3 text-left border border-gray-300 whitespace-nowrap">NAME</th> {}
@@ -406,12 +407,13 @@ function Profile() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </main>
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-teal-700 text-white px-5 py-3 rounded-xl shadow-xl animate-fade-in-up">
+        <div className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-4 rounded-xl bg-teal-700 px-4 py-3 text-white shadow-xl animate-fade-in-up sm:bottom-6 sm:w-auto sm:px-5">
           {toast.type === "success" ? (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-teal-200 shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />

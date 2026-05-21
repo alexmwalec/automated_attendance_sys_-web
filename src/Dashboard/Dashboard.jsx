@@ -5,6 +5,7 @@ import {
   RadialBarChart, RadialBar, AreaChart, Area
 } from "recharts";
 import { collection, onSnapshot, query, where, getDocs } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import Sidebar from "../components/sidebar";
 
@@ -54,7 +55,7 @@ function StatCard({ label, value, sub, accent }) {
 function Combobox({ placeholder, value, onChange, onSelect, results, loading }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="relative flex-1 min-w-[160px]">
+    <div className="relative w-full min-w-0">
       <input
         value={value}
         onChange={(e) => { onChange(e.target.value); setOpen(true); }}
@@ -84,6 +85,8 @@ function Combobox({ placeholder, value, onChange, onSelect, results, loading }) 
 
 //  Main Dashboard 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   // Raw Firestore data
   const [courses,    setCourses]    = useState([]);
   const [students,   setStudents]   = useState([]);
@@ -91,6 +94,7 @@ export default function Dashboard() {
   const [departments,setDepartments]= useState([]);
   const [attendance, setAttendance] = useState([]);   // all attendance docs
   const [loading,    setLoading]    = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   // ── Filters ──
   const [selCourse,     setSelCourse]     = useState(null);   // {id, label}
@@ -304,18 +308,18 @@ export default function Dashboard() {
   const hasFilter = chips.length > 0;
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans">
+    <div className="flex min-h-screen flex-col bg-gray-50 font-sans sm:h-screen sm:flex-row">
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto p-5">
+      <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
         {/*Header */}
         <div
-          className="rounded-2xl px-5 py-4 mb-5 bg-teal-500 flex justify-between items-center">
+          className="relative mb-5 flex flex-col gap-3 rounded-2xl bg-teal-500 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <h1 className="text-white text-lg  tracking-tight">Attendance Analytics</h1>
             <p className="text-teal-100 text-xs mt-0.5">Real-time attendance insights</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
             {hasFilter && (
               <button
                 onClick={clearAll}
@@ -324,18 +328,37 @@ export default function Dashboard() {
                 Clear filters
               </button>
             )}
-            <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white">
+            <button
+              type="button"
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+              className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition"
+              aria-label="Open profile menu"
+            >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-            </div>
+            </button>
           </div>
+          {showProfileMenu && (
+            <div className="absolute right-4 top-full z-40 mt-2 h-11 w-20 rounded-xl bg-teal-100 text-left shadow-lg ring-1 ring-black ring-opacity-5 sm:right-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProfileMenu(false);
+                  navigate("/");
+                }}
+                className="w-full px-4 py-3 text-sm text-slate-700 hover:bg-teal-50 transition-colors rounded-lg"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
 
         {/*Filters */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm mb-4 border border-gray-100">
+        <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filters</p>
-          <div className="flex flex-wrap gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
 
             {/* Course */}
             <Combobox
@@ -351,7 +374,7 @@ export default function Dashboard() {
             <select
               value={selYear}
               onChange={e => setSelYear(e.target.value)}
-              className="flex-1 min-w-[130px] border border-teal-400 rounded-xl px-3 py-2 text-sm outline-none bg-white shadow-sm"
+              className="w-full rounded-xl border border-teal-400 bg-white px-3 py-2 text-sm shadow-sm outline-none"
             >
               <option value="">All Years</option>
               {["1","2","3","4","5"].map(y => (
@@ -422,7 +445,7 @@ export default function Dashboard() {
         ) : (
           <>
             {/* ── Stat Cards ── */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 label="Total Records"
                 value={total.toLocaleString()}
@@ -451,8 +474,8 @@ export default function Dashboard() {
 
             {/* ── Student profile panel (only when student selected) ── */}
             {selStudent && studentProfile && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-5">
-                <div className="flex items-start gap-4">
+              <div className="mb-5 overflow-x-auto rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                   <div className="w-14 h-14 rounded-2xl bg-teal-100 flex items-center justify-center text-2xl font-bold text-teal-700 shrink-0">
                     {(studentProfile.name[0] || "?").toUpperCase()}
                   </div>
@@ -483,7 +506,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   {/* Attendance rate gauge */}
-                  <div className="shrink-0 flex flex-col items-center">
+                  <div className="flex shrink-0 flex-col items-center sm:ml-auto">
                     <div
                       className="w-16 h-16 rounded-full flex items-center justify-center text-lg font-black"
                       style={{
@@ -500,7 +523,7 @@ export default function Dashboard() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+            <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
               {/* Pie Chart */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col items-center">
                 <h3 className="font-bold text-gray-700 text-sm mb-3 self-start">Present vs Absent</h3>
@@ -538,7 +561,7 @@ export default function Dashboard() {
               </div>
 
               {/* Daily Trend Area */}
-              <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm xl:col-span-2">
                 <h3 className="font-bold text-gray-700 text-sm mb-4">Attendance Trend by Date</h3>
                 {trendData.length === 0 ? (
                   <p className="text-gray-400 text-sm text-center mt-10">No data for selected filters</p>
@@ -569,10 +592,11 @@ export default function Dashboard() {
 
             {/* By-Course Bar Chart (hidden if filtering by single student only) */}
             {byCourseData.length > 0 && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-5">
+              <div className="mb-5 overflow-x-auto rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                 <h3 className="font-bold text-gray-700 text-sm mb-4">
                   {selStudent ? "Attendance by Course (this student)" : "Present vs Absent by Course"}
                 </h3>
+                <div className="min-w-[520px]">
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={byCourseData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -584,61 +608,9 @@ export default function Dashboard() {
                     <Bar dataKey="Absent"  fill={ABSENT_COLOR}  radius={[4, 4, 0, 0]} maxBarSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
+                </div>
               </div>
             )}
-
-            {/* Student-level table (top absentees)*/}
-            {!selStudent && flatEntries.length > 0 && (() => {
-              const stuMap = {};
-              flatEntries.forEach(e => {
-                const key = e.regNo;
-                if (!stuMap[key]) stuMap[key] = { regNo: key, name: `${e.name} ${e.surname}`.trim(), present: 0, absent: 0 };
-                e.status === "Present" ? stuMap[key].present++ : stuMap[key].absent++;
-              });
-              const rows = Object.values(stuMap)
-                .map(r => ({ ...r, total: r.present + r.absent, rate: pct(r.present, r.present + r.absent) }))
-                .sort((a, b) => a.rate - b.rate)
-                .slice(0, 10);
-              return (
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                  <h3 className="font-bold text-gray-700 text-sm mb-4">Students with Lowest Attendance Rate</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-xs text-gray-400 uppercase border-b">
-                          <th className="text-left pb-2 font-semibold">Student</th>
-                          <th className="text-left pb-2 font-semibold">Reg No</th>
-                          <th className="text-right pb-2 font-semibold text-emerald-600">Present</th>
-                          <th className="text-right pb-2 font-semibold text-rose-500">Absent</th>
-                          <th className="text-right pb-2 font-semibold">Rate</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((row, i) => (
-                          <tr key={row.regNo} className="border-b border-gray-50 hover:bg-gray-50 transition">
-                            <td className="py-2 font-medium text-gray-700">{row.name || "—"}</td>
-                            <td className="py-2 text-gray-400 text-xs">{row.regNo}</td>
-                            <td className="py-2 text-right text-emerald-600 font-semibold">{row.present}</td>
-                            <td className="py-2 text-right text-rose-500 font-semibold">{row.absent}</td>
-                            <td className="py-2 text-right">
-                              <span
-                                className="inline-block px-2 py-0.5 rounded-full text-xs font-bold"
-                                style={{
-                                  background: row.rate >= 75 ? "#d1fae5" : row.rate >= 50 ? "#fef3c7" : "#fee2e2",
-                                  color:      row.rate >= 75 ? "#065f46" : row.rate >= 50 ? "#92400e" : "#991b1b"
-                                }}
-                              >
-                                {row.rate}%
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })()}
           </>
         )}
       </main>
