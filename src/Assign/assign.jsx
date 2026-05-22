@@ -182,7 +182,6 @@ function AssignInvigilator() {
     }
   };
 
-  // When the user leaves the field, check if what they typed is a real user
   const handleInvigilatorBlur = () => {
     if (!formData.invigilator.trim()) {
       setInvigilatorError("");
@@ -273,7 +272,6 @@ function AssignInvigilator() {
     }
   };
 
-  // Form is only valid when all fields are filled and the invigilator is a real user
   const isFormValid =
     formData.course &&
     formData.date &&
