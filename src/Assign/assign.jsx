@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import Sidebar from "../components/sidebar";
 import { db } from "../../firebase";
 import {
@@ -345,8 +346,26 @@ function AssignInvigilator() {
                       <td className="p-2 border border-gray-300">{item.room}</td>
                       <td className="p-2 border border-gray-300 font-semibold text-teal-700">{item.invigilatorName}</td>
                       <td className="p-2 border border-gray-300 text-center">
-                        <button onClick={() => handleEdit(item)} className="text-blue-500 hover:text-blue-700 mr-3 text-xs font-bold uppercase transition">Edit</button>
-                        <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase transition">Delete</button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(item)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-blue-500 transition hover:bg-blue-50 hover:text-blue-700"
+                            aria-label="Edit assignment"
+                            title="Edit"
+                          >
+                            <FiEdit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item.id)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500 transition hover:bg-red-50 hover:text-red-700"
+                            aria-label="Delete assignment"
+                            title="Delete"
+                          >
+                            <FiTrash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
