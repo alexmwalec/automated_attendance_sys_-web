@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area
@@ -47,13 +48,16 @@ function StatCard({ label, value, sub, accent }) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   // Raw Firestore data
   const [courses, setCourses] = useState([]);
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState([]);   
   const [loading, setLoading] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  // ── Filters ──
+  // Filters
   const [selYear, setSelYear] = useState("all");
   const [selDept, setSelDept] = useState("");
   const [selProgram, setSelProgram] = useState("");
@@ -96,7 +100,7 @@ export default function Dashboard() {
     });
   }, []);
 
-  // ── Logic: Derived Filter Options ──
+  // Logic: Derived Filter Options
   const uniqueDepts = useMemo(() => {
     const depts = courses.map(c => c.department).filter(d => d && d !== "Unassigned");
     return [...new Set(depts)].sort();
@@ -127,7 +131,7 @@ export default function Dashboard() {
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [students, selDept, selYear, selCourse]);
 
-  // ── Main Data Processing ──
+  // Main Data Processing
   const flatEntries = useMemo(() => {
     let filteredAttendance = attendance;
 
@@ -201,9 +205,24 @@ export default function Dashboard() {
             <h1 className="text-white text-lg tracking-tight font-bold">Attendance Insights</h1>
             <p className="text-teal-100 text-xs">Monitoring {courses.length} courses and {students.length} students</p>
           </div>
-          <button onClick={clearAll} className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition font-medium">
-            Reset Filters
-          </button>
+          <div className="relative flex items-center gap-2 self-start sm:self-auto">
+            <button onClick={clearAll} className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition font-medium">
+              Reset Filters
+            </button>
+            <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 text-white hover:bg-teal-400">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              </svg>
+            </button>
+            {showProfileMenu && (
+              <div className="absolute right-0 top-full z-40 mt-2 h-11 w-20 rounded-xl bg-teal-100 text-left shadow-lg ring-1 ring-black ring-opacity-5">
+                <button type="button" onClick={() => { setShowProfileMenu(false); navigate("/"); }}
+                  className="w-full px-4 py-3 text-sm text-slate-700 hover:bg-teal-50 transition-colors rounded-lg">
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Filters Section */}
