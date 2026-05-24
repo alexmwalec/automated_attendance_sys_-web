@@ -4,14 +4,12 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area
 } from "recharts";
 import { collection, onSnapshot } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import Sidebar from "../components/sidebar";
 
 // Palette 
 const PRESENT_COLOR = "#10b981";  
 const ABSENT_COLOR  = "#ef4444";  
-const TEAL          = "#0d9488";
 
 // Helpers
 function pct(a, total) {
@@ -49,17 +47,13 @@ function StatCard({ label, value, sub, accent }) {
 }
 
 export default function Dashboard({ analyticsMode = false }) {
-  const navigate = useNavigate();
-
   // Raw Firestore data
   const [courses, setCourses] = useState([]);
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState([]);   
   const [loading, setLoading] = useState(true);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   // ── Filters ──
-  const [selCourse, setSelCourse] = useState("");   // Course ID string
   const [selYear, setSelYear] = useState("all");
   const [selDept, setSelDept] = useState("");
   const [selProgram, setSelProgram] = useState("");
@@ -68,14 +62,12 @@ export default function Dashboard({ analyticsMode = false }) {
   // Fetch: courses 
   useEffect(() => {
     return onSnapshot(collection(db, "courses"), snap => {
-      const list = snap.docs.map(d => ({
+      setCourses(snap.docs.map(d => ({
         id: d.id,
         name: d.data().courseName || d.id,
         department: d.data().department || "",
         program: d.data().program || "",
-        year: d.data().year || "",
-      }));
-      setCourses(list);
+      })));
     });
   }, []);
 
@@ -89,7 +81,6 @@ export default function Dashboard({ analyticsMode = false }) {
         year: d.data().year || d.data().years || "",
         department: d.data().department || "",
         program: d.data().program || "",
-        courses: d.data().courses || "" // CSV string: "CS101, MAT202"
       })));
     });
   }, []);
@@ -104,52 +95,31 @@ export default function Dashboard({ analyticsMode = false }) {
   }, []);
 
   // ── Logic: Derived Data for Dropdowns ──
-  const uniqueDepts = useMemo(() => [...new Set(courses.map(c => c.department))].filter(Boolean).sort(), [courses]);
-  const uniqueProgs = useMemo(() => [...new Set(courses.map(c => c.program))].filter(Boolean).sort(), [courses]);
+  const uniqueDepts = useMemo(() => [...new Set(students.map(s => s.department))].filter(Boolean).sort(), [students]);
+  const uniqueProgs = useMemo(() => [...new Set(students.map(s => s.program))].filter(Boolean).sort(), [students]);
 
-  // Logic: Filter courses based on Dept/Program selection
-  const filteredCourseOptions = useMemo(() => {
-    return courses.filter(c => {
-      const matchDept = selDept ? c.department === selDept : true;
-      const matchProg = selProgram ? c.program === selProgram : true;
-      return matchDept && matchProg;
-    });
-  }, [courses, selDept, selProgram]);
-
-  // Logic: Filter students based on selected course
-  const eligibleStudents = useMemo(() => {
-    if (!selCourse) return [];
-    return students.filter(s => 
-      s.courses.split(',').map(c => c.trim().toLowerCase()).includes(selCourse.toLowerCase())
-    );
-  }, [students, selCourse]);
-
-  // ── Logic: Auto-fill Year when course is selected ──
-  const handleCourseChange = (courseId) => {
-    setSelCourse(courseId);
-    setSelStudent(""); // Reset student when course changes
-    if (courseId) {
-      const courseObj = courses.find(c => c.id === courseId);
-      if (courseObj && courseObj.year) {
-        setSelYear(String(courseObj.year));
-      }
-    } else {
-      setSelYear("all");
-    }
-  };
+  // Logic: Filter students list based on Dept/Program/Year selection
+  const filteredStudentOptions = useMemo(() => {
+    return students.filter(s => {
+      const matchDept = selDept ? s.department === selDept : true;
+      const matchProg = selProgram ? s.program === selProgram : true;
+      const matchYear = selYear !== "all" ? String(s.year) === selYear : true;
+      return matchDept && matchProg && matchYear;
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [students, selDept, selProgram, selYear]);
 
   // ── Filtering Attendance Data ──
   const flatEntries = useMemo(() => {
     let docs = attendance;
 
-    if (selCourse) docs = docs.filter(d => d.courseCode === selCourse);
-    if (selDept) {
-      const deptCourseIds = new Set(courses.filter(c => c.department === selDept).map(c => c.id));
-      docs = docs.filter(d => deptCourseIds.has(d.courseCode));
-    }
-    if (selProgram) {
-      const progCourseIds = new Set(courses.filter(c => c.program === selProgram).map(c => c.id));
-      docs = docs.filter(d => progCourseIds.has(d.courseCode));
+    // Filter by Dept/Program (Mapping via courses)
+    if (selDept || selProgram) {
+      const validCourseIds = new Set(
+        courses
+          .filter(c => (selDept ? c.department === selDept : true) && (selProgram ? c.program === selProgram : true))
+          .map(c => c.id)
+      );
+      docs = docs.filter(d => validCourseIds.has(d.courseCode));
     }
 
     const rows = [];
@@ -165,14 +135,18 @@ export default function Dashboard({ analyticsMode = false }) {
       });
     });
 
-    if (selStudent) return rows.filter(r => r.regNo === selStudent);
-    if (selYear !== "all") {
-      const regNosInYear = new Set(students.filter(s => String(s.year) === String(selYear)).map(s => s.regNo));
-      return rows.filter(r => regNosInYear.has(r.regNo));
+    // Final filter by Student or Year
+    let result = rows;
+    if (selStudent) {
+      result = result.filter(r => r.regNo === selStudent);
+    } else if (selYear !== "all" || selDept || selProgram) {
+      // If no specific student, filter rows by students who match the current criteria
+      const validRegNos = new Set(filteredStudentOptions.map(s => s.regNo));
+      result = result.filter(r => validRegNos.has(r.regNo));
     }
 
-    return rows;
-  }, [attendance, selCourse, selDept, selProgram, selStudent, selYear, courses, students]);
+    return result;
+  }, [attendance, selDept, selProgram, selStudent, selYear, courses, filteredStudentOptions]);
 
   // Stats
   const totalPresent = flatEntries.filter(e => e.status === "Present").length;
@@ -180,7 +154,7 @@ export default function Dashboard({ analyticsMode = false }) {
   const total        = flatEntries.length;
   const attendanceRate = pct(totalPresent, total);
 
-  // Charts mapping (Simplified version for space)
+  // Charts
   const trendData = useMemo(() => {
     const map = {};
     flatEntries.forEach(e => {
@@ -201,13 +175,11 @@ export default function Dashboard({ analyticsMode = false }) {
   }, [flatEntries]);
 
   const clearAll = useCallback(() => {
-    setSelCourse(""); setSelYear("all"); setSelDept("");
+    setSelYear("all"); setSelDept("");
     setSelProgram(""); setSelStudent("");
   }, []);
 
-  const hasFilter = selCourse || selDept || selProgram || selStudent || selYear !== "all";
-
-  // Dropdown style class
+  const hasFilter = selDept || selProgram || selStudent || selYear !== "all";
   const selectClass = "w-full rounded-xl border border-teal-400 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 transition-all cursor-pointer appearance-none";
 
   return (
@@ -216,84 +188,57 @@ export default function Dashboard({ analyticsMode = false }) {
 
       <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
         {/* Header */}
-        <div className="relative mb-5 flex flex-col gap-3 rounded-2xl bg-teal-500 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="relative mb-5 flex flex-col gap-3 rounded-2xl bg-teal-500 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 shadow-md">
           <div>
             <h1 className="text-white text-lg tracking-tight font-bold">
-              {analyticsMode ? "Attendance Analytics" : "Attendance Dashboard"}
+              Attendance Analytics
             </h1>
-            <p className="text-teal-100 text-xs">Real-time data synchronization</p>
+            <p className="text-teal-100 text-xs">Live tracking and student performance</p>
           </div>
           <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
             {hasFilter && (
-              <button onClick={clearAll} className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition">
-                Reset All
+              <button onClick={clearAll} className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition font-medium">
+                Reset All Filters
               </button>
             )}
           </div>
         </div>
 
-        {/* Filter Dropdowns */}
+        {/* Filters */}
         <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filters</p>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Data Filters</p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             
             {/* Dept Dropdown */}
-            <div className="relative">
-              <select value={selDept} onChange={e => {setSelDept(e.target.value); setSelCourse("");}} className={selectClass}>
-                <option value="">All Departments</option>
-                {uniqueDepts.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
+            <select value={selDept} onChange={e => {setSelDept(e.target.value); setSelStudent("");}} className={selectClass}>
+              <option value="">All Departments</option>
+              {uniqueDepts.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
 
             {/* Program Dropdown */}
-            <div className="relative">
-              <select value={selProgram} onChange={e => {setSelProgram(e.target.value); setSelCourse("");}} className={selectClass}>
-                <option value="">All Programs</option>
-                {uniqueProgs.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
+            <select value={selProgram} onChange={e => {setSelProgram(e.target.value); setSelStudent("");}} className={selectClass}>
+              <option value="">All Programs</option>
+              {uniqueProgs.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
 
-            {/* Course Dropdown */}
-            <div className="relative">
-              <select value={selCourse} onChange={e => handleCourseChange(e.target.value)} className={selectClass}>
-                <option value="">Select Course</option>
-                {filteredCourseOptions.map(c => <option key={c.id} value={c.id}>{c.id} - {c.name}</option>)}
-              </select>
-            </div>
+            {/* Year Dropdown */}
+            <select value={selYear} onChange={e => {setSelYear(e.target.value); setSelStudent("");}} className={selectClass}>
+              <option value="all">All Years</option>
+              {["1","2","3","4","5"].map(y => <option key={y} value={y}>Year {y}</option>)}
+            </select>
 
-            {/* Year Dropdown (Disabled if course selected as it's auto-filled) */}
-            <div className="relative">
-              <select 
-                value={selYear} 
-                onChange={e => setSelYear(e.target.value)} 
-                className={`${selectClass} ${selCourse ? 'bg-gray-50 border-teal-200' : ''}`}
-              >
-                <option value="all">All Years</option>
-                {["1","2","3","4","5"].map(y => <option key={y} value={y}>Year {y}</option>)}
-              </select>
-            </div>
-
-            {/* Student Dropdown (Dependent on Course) */}
-            <div className="relative">
-              <select 
-                value={selStudent} 
-                onChange={e => setSelStudent(e.target.value)} 
-                disabled={!selCourse}
-                className={`${selectClass} ${!selCourse ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
-              >
-                <option value="">{selCourse ? "All Students in Course" : "Select Course First"}</option>
-                {eligibleStudents.map(s => <option key={s.regNo} value={s.regNo}>{s.name} ({s.regNo})</option>)}
-              </select>
-            </div>
+            {/* Student Dropdown (Dynamically Filtered) */}
+            <select value={selStudent} onChange={e => setSelStudent(e.target.value)} className={selectClass}>
+              <option value="">{selDept ? `All Students in ${selDept}` : "All Students (Across Uni)"}</option>
+              {filteredStudentOptions.map(s => (
+                <option key={s.regNo} value={s.regNo}>{s.name} ({s.regNo})</option>
+              ))}
+            </select>
           </div>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>
-        ) : !hasFilter ? (
-          <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
-            <p className="text-base font-medium">Select a filter to begin analysis</p>
-          </div>
         ) : (
           <>
             <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -304,8 +249,9 @@ export default function Dashboard({ analyticsMode = false }) {
             </div>
 
             <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
+              {/* Engagement Pie */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col items-center">
-                <h3 className="font-bold text-gray-700 text-sm mb-3 self-start">Engagement Distribution</h3>
+                <h3 className="font-bold text-gray-700 text-sm mb-3 self-start">Engagement Ratio</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
                     <Pie data={[{name:"Present", value:totalPresent}, {name:"Absent", value:totalAbsent}]} innerRadius={55} outerRadius={80} paddingAngle={5} dataKey="value">
@@ -316,8 +262,9 @@ export default function Dashboard({ analyticsMode = false }) {
                 </ResponsiveContainer>
               </div>
 
+              {/* Timeline Chart */}
               <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm xl:col-span-2">
-                <h3 className="font-bold text-gray-700 text-sm mb-4">Attendance Timeline</h3>
+                <h3 className="font-bold text-gray-700 text-sm mb-4">Historical Timeline</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -331,8 +278,9 @@ export default function Dashboard({ analyticsMode = false }) {
               </div>
             </div>
 
+            {/* Course Breakdown */}
             <div className="mb-5 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <h3 className="font-bold text-gray-700 text-sm mb-4">Performance by Component</h3>
+              <h3 className="font-bold text-gray-700 text-sm mb-4">Distribution by Course</h3>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={byCourseData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
