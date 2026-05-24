@@ -206,9 +206,6 @@ export default function Dashboard() {
             <p className="text-teal-100 text-xs">Monitoring {courses.length} courses and {students.length} students</p>
           </div>
           <div className="relative flex items-center gap-2 self-start sm:self-auto">
-            <button onClick={clearAll} className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition font-medium">
-              Reset Filters
-            </button>
             <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 text-white hover:bg-teal-400">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
@@ -227,6 +224,9 @@ export default function Dashboard() {
 
         {/* Filters Section */}
         <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mb-3">
+            <h2 className="text-xs font-bold uppercase text-gray-400">Filters</h2>
+          </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             
             {/* Department */}
@@ -266,6 +266,11 @@ export default function Dashboard() {
                 ))}
               </select>
             </div>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button onClick={clearAll} className="text-xs bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg transition font-medium">
+              Reset Filters
+            </button>
           </div>
         </div>
 
