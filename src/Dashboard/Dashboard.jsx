@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area
@@ -46,14 +47,35 @@ function StatCard({ label, value, sub, accent }) {
   );
 }
 
+function EmptyChartState({ filtered }) {
+  return (
+    <div className="flex h-full min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 text-center">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-teal-600">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125C16.5 3.504 17.004 3 17.625 3h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+        </svg>
+      </div>
+      <p className="text-sm font-semibold text-gray-700">
+        {filtered ? "No records match these filters" : "No attendance records yet"}
+      </p>
+      <p className="mt-1 max-w-xs text-xs text-gray-500">
+        {filtered ? "Try a different department, course, year, or student." : "Charts will appear here after attendance is captured."}
+      </p>
+    </div>
+  );
+}
+
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   // Raw Firestore data
   const [courses, setCourses] = useState([]);
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState([]);   
   const [loading, setLoading] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  // ── Filters ──
+  // Filters
   const [selYear, setSelYear] = useState("all");
   const [selDept, setSelDept] = useState("");
   const [selProgram, setSelProgram] = useState("");
@@ -96,7 +118,7 @@ export default function Dashboard() {
     });
   }, []);
 
-  // ── Logic: Derived Filter Options ──
+  // Logic: Derived Filter Options
   const uniqueDepts = useMemo(() => {
     const depts = courses.map(c => c.department).filter(d => d && d !== "Unassigned");
     return [...new Set(depts)].sort();
@@ -127,7 +149,7 @@ export default function Dashboard() {
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [students, selDept, selYear, selCourse]);
 
-  // ── Main Data Processing ──
+  // Main Data Processing
   const flatEntries = useMemo(() => {
     let filteredAttendance = attendance;
 
@@ -189,6 +211,9 @@ export default function Dashboard() {
     setSelCourse(""); setSelStudent("");
   }, []);
 
+  const hasActiveFilters = selYear !== "all" || selDept || selCourse || selStudent;
+  const hasChartData = stats.total > 0;
+
   const selectClass = "w-full rounded-xl border border-teal-400 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 transition-all cursor-pointer appearance-none";
 
   return (
@@ -201,13 +226,28 @@ export default function Dashboard() {
             <h1 className="text-white text-lg tracking-tight font-bold">Attendance Insights</h1>
             <p className="text-teal-100 text-xs">Monitoring {courses.length} courses and {students.length} students</p>
           </div>
-          <button onClick={clearAll} className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition font-medium">
-            Reset Filters
-          </button>
+          <div className="relative flex items-center gap-2 self-start sm:self-auto">
+            <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 text-white hover:bg-teal-400">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              </svg>
+            </button>
+            {showProfileMenu && (
+              <div className="absolute right-0 top-full z-40 mt-2 h-11 w-20 rounded-xl bg-teal-100 text-left shadow-lg ring-1 ring-black ring-opacity-5">
+                <button type="button" onClick={() => { setShowProfileMenu(false); navigate("/"); }}
+                  className="w-full px-4 py-3 text-sm text-slate-700 hover:bg-teal-50 transition-colors rounded-lg">
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Filters Section */}
         <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mb-3">
+            <h2 className="text-xs font-bold uppercase text-gray-400">Filters</h2>
+          </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             
             {/* Department */}
@@ -248,6 +288,11 @@ export default function Dashboard() {
               </select>
             </div>
           </div>
+          <div className="mt-3 flex justify-end">
+            <button onClick={clearAll} className="text-xs bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg transition font-medium">
+              Reset Filters
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -265,29 +310,38 @@ export default function Dashboard() {
                 {/* Gauge / Pie */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col items-center">
                     <h3 className="font-bold text-gray-700 text-sm mb-3 self-start">Engagement Ratio</h3>
-                    <ResponsiveContainer width="100%" height={200}>
-                        <PieChart>
-                            <Pie data={[{name:"Present", value:stats.present}, {name:"Absent", value:stats.absent}]} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                <Cell fill={PRESENT_COLOR} /><Cell fill={ABSENT_COLOR} />
-                            </Pie>
-                            <Tooltip />
-                        </PieChart>
-                    </ResponsiveContainer>
+                    {hasChartData ? (
+                      <ResponsiveContainer width="100%" height={230}>
+                          <PieChart>
+                              <Pie data={[{name:"Present", value:stats.present}, {name:"Absent", value:stats.absent}]} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                  <Cell fill={PRESENT_COLOR} /><Cell fill={ABSENT_COLOR} />
+                              </Pie>
+                              <Tooltip />
+                              <Legend verticalAlign="bottom" height={24} iconType="circle" />
+                          </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <EmptyChartState filtered={hasActiveFilters} />
+                    )}
                 </div>
 
                 {/* Trend */}
                 <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                     <h3 className="font-bold text-gray-700 text-sm mb-4">Historical Trend</h3>
-                    <ResponsiveContainer width="100%" height={200}>
-                        <AreaChart data={trendData}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="date" tick={{fontSize: 10}} />
-                            <YAxis tick={{fontSize: 10}} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Area type="monotone" dataKey="Present" stroke={PRESENT_COLOR} fill={PRESENT_COLOR} fillOpacity={0.1} />
-                            <Area type="monotone" dataKey="Absent" stroke={ABSENT_COLOR} fill={ABSENT_COLOR} fillOpacity={0.1} />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                    {hasChartData ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                          <AreaChart data={trendData}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                              <XAxis dataKey="date" tick={{fontSize: 10}} />
+                              <YAxis tick={{fontSize: 10}} />
+                              <Tooltip content={<CustomTooltip />} />
+                              <Area type="monotone" dataKey="Present" stroke={PRESENT_COLOR} fill={PRESENT_COLOR} fillOpacity={0.1} />
+                              <Area type="monotone" dataKey="Absent" stroke={ABSENT_COLOR} fill={ABSENT_COLOR} fillOpacity={0.1} />
+                          </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <EmptyChartState filtered={hasActiveFilters} />
+                    )}
                 </div>
             </div>
           </>
