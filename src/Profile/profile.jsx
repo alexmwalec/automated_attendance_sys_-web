@@ -207,20 +207,20 @@ function Profile() {
     formData.role;
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex min-h-screen flex-col bg-gray-100 sm:h-screen sm:flex-row">
       <Sidebar />
 
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
         {/* Header */}
-        <div className="bg-teal-500 text-white px-4 py-3 rounded-lg mb-4 flex justify-between items-center relative">
+        <div className="relative mb-4 flex items-center justify-between rounded-lg bg-teal-500 px-4 py-3 text-white">
           <span>Profile</span>
-          <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 hover:bg-teal-600">
+          <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 hover:bg-teal-400">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
             </svg>
           </button>
           {showProfileMenu && (
-            <div className="absolute right-4 top-full mt-2 w-20 h-11 rounded-xl bg-teal-100 text-left shadow-lg ring-1 ring-black ring-opacity-5">
+            <div className="absolute right-4 top-full z-40 mt-2 h-11 w-20 rounded-xl bg-teal-100 text-left shadow-lg ring-1 ring-black ring-opacity-5">
               <button type="button" onClick={() => { setShowProfileMenu(false); navigate("/"); }}
                 className="w-full px-4 py-3 text-sm text-slate-700 hover:bg-teal-50 transition-colors rounded-lg">
                 Logout
@@ -254,7 +254,7 @@ function Profile() {
                 name="name"
                 value={formData.name}
                 onChange={handleFormChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
                 placeholder="Enter name"
               />
             </div>
@@ -267,7 +267,7 @@ function Profile() {
                 name="surname"
                 value={formData.surname}
                 onChange={handleFormChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
                 placeholder="Enter surname"
               />
             </div>
@@ -332,10 +332,10 @@ function Profile() {
 
           </div>
 
-          <div className="flex justify-end gap-3 mt-6">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
             {editingIndex !== null && (
               <button type="button" onClick={handleCancelEdit}
-                className="px-6 py-2 rounded-full font-semibold shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
+                className="rounded-full bg-gray-200 px-6 py-2 font-semibold text-gray-700 shadow-md transition-colors hover:bg-teal-100">
                 Cancel
               </button>
             )}
@@ -343,9 +343,9 @@ function Profile() {
               type="button"
               onClick={handleAddUser}
               disabled={!isFormValid}
-              className={`px-6 py-2 rounded-full font-semibold shadow-md transition-colors ${
+              className={`rounded-full px-6 py-2 font-semibold shadow-md transition-colors ${
                 isFormValid
-                  ? "bg-teal-600 hover:bg-teal-700 text-white cursor-pointer"
+                  ? "bg-teal-600 hover:bg-teal-500 text-white cursor-pointer"
                   : "bg-gray-300 text-gray-600 cursor-not-allowed"
               }`}
             >
@@ -357,7 +357,8 @@ function Profile() {
         {/* Table */}
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <h2 className="text-xl font-semibold text-teal-700 mb-4">Profiles</h2>
-          <table className="w-full min-w-full border border-gray-300">
+          <div className="overflow-x-auto">
+          <table className="min-w-[820px] w-full border border-gray-300">
             <thead>
               <tr className="bg-teal-600 text-white text-sm">
                 <th className="p-3 text-left border border-gray-300 whitespace-nowrap">NAME</th> {}
@@ -388,7 +389,7 @@ function Profile() {
                     <td className="p-2 border border-gray-300">
                       <div className="flex items-center justify-center gap-3">
                         <button type="button" onClick={() => handleEdit(index)} title="Edit"
-                          className="text-teal-600 hover:text-teal-800 transition-colors">
+                          className="text-teal-600 hover:text-teal-500 transition-colors">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-5 h-5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
                           </svg>
@@ -406,12 +407,13 @@ function Profile() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </main>
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-teal-700 text-white px-5 py-3 rounded-xl shadow-xl animate-fade-in-up">
+        <div className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-4 rounded-xl bg-teal-700 px-4 py-3 text-white shadow-xl animate-fade-in-up sm:bottom-6 sm:w-auto sm:px-5">
           {toast.type === "success" ? (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-teal-200 shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -434,7 +436,7 @@ function Profile() {
             </button>
           )}
           <button type="button" onClick={handleDismissToast}
-            className="text-teal-200 hover:text-white transition-colors ml-1" title="Dismiss">
+            className="text-teal-200 hover:text-teal-100 transition-colors ml-1" title="Dismiss">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>

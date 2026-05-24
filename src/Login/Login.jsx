@@ -17,9 +17,9 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm bg-white rounded-[32px] shadow-xl border border-slate-200 p-8 text-center">
-        <h1 className="text-3xl font-bold tracking-[0.3em] text-teal-700 mb-8">AAS PORTAL</h1>
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
+      <div className="w-full max-w-sm rounded-[28px] border border-slate-200 bg-white p-6 text-center shadow-xl sm:rounded-[32px] sm:p-8">
+        <h1 className="mb-8 text-2xl font-bold tracking-[0.22em] text-teal-700 sm:text-3xl sm:tracking-[0.3em]">AAS PORTAL</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-left">
 
@@ -66,9 +66,9 @@ function Login() {
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-teal-700 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-teal-800"
+            className="w-full rounded-xl bg-teal-700 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-teal-500"
           >
-            Sign In
+            Log In
           </button>
         </form>
       </div>

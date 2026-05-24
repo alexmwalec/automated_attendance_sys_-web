@@ -1,324 +1,349 @@
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area
 } from "recharts";
+import { collection, onSnapshot } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { db } from "../firebase";
 import Sidebar from "../components/sidebar";
 
-const attendanceData = [
-  { week: 1, present: 35, absent: 22 },
-  { week: 2, present: 40, absent: 18 },
-  { week: 3, present: 38, absent: 20 },
-  { week: 4, present: 45, absent: 14 },
-  { week: 5, present: 42, absent: 16 },
-  { week: 6, present: 48, absent: 10 },
-  { week: 7, present: 50, absent: 8 },
-  { week: 8, present: 44, absent: 15 },
-  { week: 9, present: 46, absent: 13 },
-  { week: 10, present: 49, absent: 11 },
-  { week: 11, present: 47, absent: 9 },
-  { week: 12, present: 52, absent: 7 },
-];
+// Palette 
+const PRESENT_COLOR = "#10b981";  
+const ABSENT_COLOR  = "#ef4444";  
+const TEAL          = "#0d9488";
 
-const studentData = [
-  { name: "Males", value: 59 },
-  { name: "Females", value: 41 },
-];
+// Helpers
+function pct(a, total) {
+  return total === 0 ? 0 : Math.round((a / total) * 100);
+}
 
-const COLORS = ["#0f766e", "#a37931"];
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  const total = (payload[0]?.value ?? 0) + (payload[1]?.value ?? 0);
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-sm">
+      <p className="font-semibold text-gray-700 mb-1">{label}</p>
+      {payload.map((p) => (
+        <p key={p.name} style={{ color: p.fill }} className="flex justify-between gap-4">
+          <span>{p.name}</span>
+          <span className="font-bold">{p.value} ({pct(p.value, total)}%)</span>
+        </p>
+      ))}
+      <p className="text-gray-400 text-xs mt-1 border-t pt-1">Total: {total}</p>
+    </div>
+  );
+};
 
-function Dashboard() {
-  const [selections, setSelections] = useState({
-    course: "",
-    sessionType: "",
-    year: "",
-    department: "",
-    program: "",
-    student: ""
-  });
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+function StatCard({ label, value, sub, accent }) {
+  return (
+    <div
+      className="rounded-2xl p-4 flex flex-col gap-1 shadow-sm border"
+      style={{ borderColor: accent + "33", background: accent + "0d" }}
+    >
+      <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: accent }}>{label}</span>
+      <span className="text-3xl font-black text-gray-800">{value}</span>
+      {sub && <span className="text-xs text-gray-500">{sub}</span>}
+    </div>
+  );
+}
 
+export default function Dashboard({ analyticsMode = false }) {
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setSelections({
-      ...selections,
-      [e.target.name]: e.target.value
+  // Raw Firestore data
+  const [courses, setCourses] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [attendance, setAttendance] = useState([]);   
+  const [loading, setLoading] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // ── Filters ──
+  const [selCourse, setSelCourse] = useState("");   // Course ID string
+  const [selYear, setSelYear] = useState("all");
+  const [selDept, setSelDept] = useState("");
+  const [selProgram, setSelProgram] = useState("");
+  const [selStudent, setSelStudent] = useState(""); // Student RegNo string
+
+  // Fetch: courses 
+  useEffect(() => {
+    return onSnapshot(collection(db, "courses"), snap => {
+      const list = snap.docs.map(d => ({
+        id: d.id,
+        name: d.data().courseName || d.id,
+        department: d.data().department || "",
+        program: d.data().program || "",
+        year: d.data().year || "",
+      }));
+      setCourses(list);
     });
+  }, []);
+
+  // Fetch: students
+  useEffect(() => {
+    return onSnapshot(collection(db, "students"), snap => {
+      setStudents(snap.docs.map(d => ({
+        id: d.id,
+        regNo: d.data().regNo || d.id,
+        name: `${d.data().name || ""} ${d.data().surname || ""}`.trim(),
+        year: d.data().year || d.data().years || "",
+        department: d.data().department || "",
+        program: d.data().program || "",
+        courses: d.data().courses || "" // CSV string: "CS101, MAT202"
+      })));
+    });
+  }, []);
+
+  // Fetch: attendance
+  useEffect(() => {
+    setLoading(true);
+    return onSnapshot(collection(db, "attendance"), snap => {
+      setAttendance(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+  }, []);
+
+  // ── Logic: Derived Data for Dropdowns ──
+  const uniqueDepts = useMemo(() => [...new Set(courses.map(c => c.department))].filter(Boolean).sort(), [courses]);
+  const uniqueProgs = useMemo(() => [...new Set(courses.map(c => c.program))].filter(Boolean).sort(), [courses]);
+
+  // Logic: Filter courses based on Dept/Program selection
+  const filteredCourseOptions = useMemo(() => {
+    return courses.filter(c => {
+      const matchDept = selDept ? c.department === selDept : true;
+      const matchProg = selProgram ? c.program === selProgram : true;
+      return matchDept && matchProg;
+    });
+  }, [courses, selDept, selProgram]);
+
+  // Logic: Filter students based on selected course
+  const eligibleStudents = useMemo(() => {
+    if (!selCourse) return [];
+    return students.filter(s => 
+      s.courses.split(',').map(c => c.trim().toLowerCase()).includes(selCourse.toLowerCase())
+    );
+  }, [students, selCourse]);
+
+  // ── Logic: Auto-fill Year when course is selected ──
+  const handleCourseChange = (courseId) => {
+    setSelCourse(courseId);
+    setSelStudent(""); // Reset student when course changes
+    if (courseId) {
+      const courseObj = courses.find(c => c.id === courseId);
+      if (courseObj && courseObj.year) {
+        setSelYear(String(courseObj.year));
+      }
+    } else {
+      setSelYear("all");
+    }
   };
 
-  const requiresCourseAndSession = !!(selections.course && selections.sessionType);
-  const hasAdditionalFilter = !!(
-    selections.year ||
-    selections.department ||
-    selections.program ||
-    selections.student
-  );
-  const dataVisible = requiresCourseAndSession || hasAdditionalFilter;
+  // ── Filtering Attendance Data ──
+  const flatEntries = useMemo(() => {
+    let docs = attendance;
 
-  const selectedCards = [
-    selections.course && { label: `Course: ${selections.course}` },
-    selections.sessionType && { label: `Session: ${selections.sessionType}` },
-    selections.year && { label: `Year: ${selections.year}` },
-    selections.department && { label: `Department: ${selections.department}` },
-    selections.program && { label: `Program: ${selections.program}` },
-    selections.student && { label: `Student: ${selections.student}` }
-  ].filter(Boolean);
-
-  const cardRows = selectedCards.length <= 4
-    ? [selectedCards]
-    : [selectedCards.slice(0, 3), selectedCards.slice(3)];
-
-  const applyAdditionalFilters = (data) => {
-    let result = data;
-
-    if (selections.department) {
-      result = result.map((item) => ({
-        ...item,
-        present: Math.max(0, item.present - 1),
-        absent: item.absent + 1
-      }));
+    if (selCourse) docs = docs.filter(d => d.courseCode === selCourse);
+    if (selDept) {
+      const deptCourseIds = new Set(courses.filter(c => c.department === selDept).map(c => c.id));
+      docs = docs.filter(d => deptCourseIds.has(d.courseCode));
+    }
+    if (selProgram) {
+      const progCourseIds = new Set(courses.filter(c => c.program === selProgram).map(c => c.id));
+      docs = docs.filter(d => progCourseIds.has(d.courseCode));
     }
 
-    if (selections.year) {
-      result = result.map((item) => ({
-        ...item,
-        present: item.present + 1,
-        absent: Math.max(0, item.absent - 1)
-      }));
+    const rows = [];
+    docs.forEach(doc => {
+      const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
+      list.forEach(entry => {
+        rows.push({
+          courseCode: doc.courseCode,
+          date: doc.date || "",
+          regNo: entry.regNo || "",
+          status: entry.status || "Absent",
+        });
+      });
+    });
+
+    if (selStudent) return rows.filter(r => r.regNo === selStudent);
+    if (selYear !== "all") {
+      const regNosInYear = new Set(students.filter(s => String(s.year) === String(selYear)).map(s => s.regNo));
+      return rows.filter(r => regNosInYear.has(r.regNo));
     }
 
-    if (selections.program) {
-      result = result.map((item) => ({
-        ...item,
-        present: item.present + 2,
-        absent: Math.max(0, item.absent - 2)
-      }));
-    }
+    return rows;
+  }, [attendance, selCourse, selDept, selProgram, selStudent, selYear, courses, students]);
 
-    if (selections.student) {
-      result = result.map((item) => ({
-        ...item,
-        present: item.present + 3,
-        absent: Math.max(0, item.absent - 3)
-      }));
-    }
+  // Stats
+  const totalPresent = flatEntries.filter(e => e.status === "Present").length;
+  const totalAbsent  = flatEntries.filter(e => e.status !== "Present").length;
+  const total        = flatEntries.length;
+  const attendanceRate = pct(totalPresent, total);
 
-    return result;
-  };
+  // Charts mapping (Simplified version for space)
+  const trendData = useMemo(() => {
+    const map = {};
+    flatEntries.forEach(e => {
+      const key = e.date || "Unknown";
+      if (!map[key]) map[key] = { date: key, Present: 0, Absent: 0 };
+      e.status === "Present" ? map[key].Present++ : map[key].Absent++;
+    });
+    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+  }, [flatEntries]);
 
-  const baseAttendanceData = requiresCourseAndSession && selections.sessionType === "Lab"
-    ? attendanceData.map((item) => ({
-        ...item,
-        present: Math.max(0, item.present - 5),
-        absent: item.absent + 5
-      }))
-    : attendanceData;
+  const byCourseData = useMemo(() => {
+    const map = {};
+    flatEntries.forEach(e => {
+      if (!map[e.courseCode]) map[e.courseCode] = { course: e.courseCode, Present: 0, Absent: 0 };
+      e.status === "Present" ? map[e.courseCode].Present++ : map[e.courseCode].Absent++;
+    });
+    return Object.values(map).slice(0, 10);
+  }, [flatEntries]);
 
-  const filteredAttendanceData = applyAdditionalFilters(baseAttendanceData);
+  const clearAll = useCallback(() => {
+    setSelCourse(""); setSelYear("all"); setSelDept("");
+    setSelProgram(""); setSelStudent("");
+  }, []);
 
-  const filteredStudentData = applyAdditionalFilters(
-    requiresCourseAndSession && selections.sessionType === "Lab"
-      ? [
-          { name: "Males", value: 49 },
-          { name: "Females", value: 51 }
-        ]
-      : studentData
-  );
+  const hasFilter = selCourse || selDept || selProgram || selStudent || selYear !== "all";
+
+  // Dropdown style class
+  const selectClass = "w-full rounded-xl border border-teal-400 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 transition-all cursor-pointer appearance-none";
 
   return (
-    <div className="flex h-screen bg-gray-100">
-
+    <div className="flex min-h-screen flex-col bg-gray-50 font-sans sm:h-screen sm:flex-row">
       <Sidebar />
 
-      {/* Main Content */}
-      <main className="flex-1 p-6 overflow-y-auto">
-
+      <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
         {/* Header */}
-        <div className="bg-teal-500 text-white px-4 py-3 rounded-lg mb-4 flex justify-between items-center relative">
-          <span>Dashboard</span>
-          <button
-            type="button"
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="rounded-full p-2 hover:bg-teal-600"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-            </svg>
-          </button>
-          {showProfileMenu && (
-            <div className="absolute right-4 top-full mt-2 w-20 h-11 rounded-xl bg-teal-100 text-left shadow-lg ring-1 ring-black ring-opacity-5">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowProfileMenu(false);
-                  navigate("/");
-                }}
-                className="w-full px-4 py-3 text-sm text-slate-700 hover:bg-teal-50 transition-colors rounded-lg"
-              >
-                Logout
+        <div className="relative mb-5 flex flex-col gap-3 rounded-2xl bg-teal-500 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div>
+            <h1 className="text-white text-lg tracking-tight font-bold">
+              {analyticsMode ? "Attendance Analytics" : "Attendance Dashboard"}
+            </h1>
+            <p className="text-teal-100 text-xs">Real-time data synchronization</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+            {hasFilter && (
+              <button onClick={clearAll} className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition">
+                Reset All
               </button>
+            )}
+          </div>
+        </div>
+
+        {/* Filter Dropdowns */}
+        <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filters</p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+            
+            {/* Dept Dropdown */}
+            <div className="relative">
+              <select value={selDept} onChange={e => {setSelDept(e.target.value); setSelCourse("");}} className={selectClass}>
+                <option value="">All Departments</option>
+                {uniqueDepts.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
             </div>
-          )}
-        </div>
 
-        {/* Dropdowns for selecting course, year, department, program and student */}
-        <div className="flex flex-wrap gap-4 mb-4">
-          <select 
-            name="course"
-            value={selections.course} 
-            onChange={handleChange}
-            className="flex-1 min-w-[180px] border border-teal-500 cursor-pointer rounded px-3 py-2"
-          >
-            <option value="">Select a Course</option>
-            <option>COM411</option>
-            <option>COM412</option>
-            <option>COM413</option>
-            <option>COM414</option>
-            <option>COM415</option>
-            <option>COM421</option>
-            <option>COM422</option>
-            <option>COM423</option>
-            <option>COM424</option>
-            <option>COM425</option>
-            <option>INF423</option>
-            <option>SCE411</option>
-          </select>
+            {/* Program Dropdown */}
+            <div className="relative">
+              <select value={selProgram} onChange={e => {setSelProgram(e.target.value); setSelCourse("");}} className={selectClass}>
+                <option value="">All Programs</option>
+                {uniqueProgs.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
 
-          <select
-            name="sessionType"
-            value={selections.sessionType}
-            onChange={handleChange}
-            className="flex-1 min-w-[180px] border border-teal-500 cursor-pointer rounded px-3 py-2"
-          >
-            <option value="">Select Session Type</option>
-            <option value="Class">Class</option>
-            <option value="Lab">Lab</option>
-            <option value="Exam">Exam</option>
-          </select>
+            {/* Course Dropdown */}
+            <div className="relative">
+              <select value={selCourse} onChange={e => handleCourseChange(e.target.value)} className={selectClass}>
+                <option value="">Select Course</option>
+                {filteredCourseOptions.map(c => <option key={c.id} value={c.id}>{c.id} - {c.name}</option>)}
+              </select>
+            </div>
 
-          <select 
-            name="year"
-            value={selections.year} 
-            onChange={handleChange}
-            className="flex-1 min-w-[180px] border border-teal-500 cursor-pointer rounded px-3 py-2"
-          >
-            <option value="">Select Year</option>
-            <option>Year 1</option>
-            <option>Year 2</option>
-            <option>Year 3</option>
-            <option>Year 4</option>
-            <option>Year 5</option>
-          </select>
-
-          <select 
-            name="department"
-            value={selections.department} 
-            onChange={handleChange}
-            className="flex-1 min-w-[180px] border border-teal-500 cursor-pointer rounded px-3 py-2"
-          >
-            <option value="">Select Department</option>
-            <option>Computing</option>
-            <option>Mathematics and Statistics</option>
-            <option>Human Ecology</option>
-            <option>Linguistics</option>
-            <option>Humanities</option>
-            <option>Politics</option>
-          </select>
-
-          <select 
-            name="program"
-            value={selections.program} 
-            onChange={handleChange}
-            className="flex-1 min-w-[180px] border border-teal-500 cursor-pointer rounded px-3 py-2"
-          >
-            <option value="">Select Program</option>
-            <option>Bsc Computer Science</option>
-            <option>Bed Computer Science</option>
-            <option>Bsc Computer Network Engineering</option>
-            <option>Bsc Information Systems</option>
-          </select>
-
-          <select 
-            name="student"
-            value={selections.student} 
-            onChange={handleChange}
-            className="flex-1 min-w-[180px] cursor-pointer border border-teal-500 rounded px-3 py-2"
-          >
-            <option value="">Select Student</option>
-            <option>Kingsley Nasimba</option>
-            <option>Sulphuric Acid</option>
-            <option>Affluence Holdings</option>
-            <option>Haris Zimtambira</option>
-            <option>Aex Mwale</option>
-          </select>
-        </div>
-
-        {dataVisible && selectedCards.length > 0 && (
-          <>
-            {cardRows.map((row, rowIndex) => (
-              <div
-                key={rowIndex}
-                className={`grid grid-cols-1 gap-4 mb-4 ${row.length === 2 ? "md:grid-cols-2" : row.length === 3 ? "md:grid-cols-3" : row.length === 4 ? "md:grid-cols-4" : "md:grid-cols-1"}`}
+            {/* Year Dropdown (Disabled if course selected as it's auto-filled) */}
+            <div className="relative">
+              <select 
+                value={selYear} 
+                onChange={e => setSelYear(e.target.value)} 
+                className={`${selectClass} ${selCourse ? 'bg-gray-50 border-teal-200' : ''}`}
               >
-                {row.map((card, cardIndex) => (
-                  <div
-                    key={cardIndex}
-                    className="bg-teal-50 border border-teal-200 rounded-lg p-4 text-center text-sm font-medium text-teal-700"
-                  >
-                    {card.label}
-                  </div>
-                ))}
+                <option value="all">All Years</option>
+                {["1","2","3","4","5"].map(y => <option key={y} value={y}>Year {y}</option>)}
+              </select>
+            </div>
+
+            {/* Student Dropdown (Dependent on Course) */}
+            <div className="relative">
+              <select 
+                value={selStudent} 
+                onChange={e => setSelStudent(e.target.value)} 
+                disabled={!selCourse}
+                className={`${selectClass} ${!selCourse ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+              >
+                <option value="">{selCourse ? "All Students in Course" : "Select Course First"}</option>
+                {eligibleStudents.map(s => <option key={s.regNo} value={s.regNo}>{s.name} ({s.regNo})</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>
+        ) : !hasFilter ? (
+          <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
+            <p className="text-base font-medium">Select a filter to begin analysis</p>
+          </div>
+        ) : (
+          <>
+            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard label="Total Records" value={total.toLocaleString()} accent="#0d9488" />
+              <StatCard label="Present" value={totalPresent.toLocaleString()} accent="#10b981" />
+              <StatCard label="Absent" value={totalAbsent.toLocaleString()} accent="#f43f5e" />
+              <StatCard label="Attendance Rate" value={`${attendanceRate}%`} accent={attendanceRate >= 75 ? "#10b981" : "#f97316"} />
+            </div>
+
+            <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col items-center">
+                <h3 className="font-bold text-gray-700 text-sm mb-3 self-start">Engagement Distribution</h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie data={[{name:"Present", value:totalPresent}, {name:"Absent", value:totalAbsent}]} innerRadius={55} outerRadius={80} paddingAngle={5} dataKey="value">
+                      <Cell fill={PRESENT_COLOR} /><Cell fill={ABSENT_COLOR} />
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-4 rounded-xl shadow-sm">
-                <h3 className="font-semibold mb-2">Attendance</h3>
-                <p className="text-xs text-gray-500 mb-4">
-                  Present and absent counts based on current filters.
-                </p>
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm xl:col-span-2">
+                <h3 className="font-bold text-gray-700 text-sm mb-4">Attendance Timeline</h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{fontSize: 10}} />
+                    <YAxis tick={{fontSize: 10}} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area type="monotone" dataKey="Present" stroke={PRESENT_COLOR} fill={PRESENT_COLOR} fillOpacity={0.1} />
+                    <Area type="monotone" dataKey="Absent" stroke={ABSENT_COLOR} fill={ABSENT_COLOR} fillOpacity={0.1} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-                <BarChart width={500} height={300} data={filteredAttendanceData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week" />
-                  <YAxis />
-                  <Tooltip />
+            <div className="mb-5 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <h3 className="font-bold text-gray-700 text-sm mb-4">Performance by Component</h3>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={byCourseData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="course" tick={{fontSize: 11}} />
+                  <YAxis tick={{fontSize: 11}} />
+                  <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Bar dataKey="present" fill="#0f766e" />
-                  <Bar dataKey="absent" fill="#a37931" />
+                  <Bar dataKey="Present" fill={PRESENT_COLOR} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Absent" fill={ABSENT_COLOR} radius={[4, 4, 0, 0]} />
                 </BarChart>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center">
-                <h3 className="font-semibold mb-4">Students</h3>
-
-                <PieChart width={300} height={300}>
-                  <Pie
-                    data={filteredStudentData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={100}
-                    dataKey="value"
-                    label
-                  >
-                    {filteredStudentData.map((entry, index) => (
-                      <Cell key={index} fill={COLORS[index]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-
-                <div className="flex gap-4 mt-4 text-sm">
-                  {filteredStudentData.map((entry, index) => (
-                    <span key={index} className="flex items-center gap-1">
-                      <span className={`w-3 h-3 rounded-full ${index === 0 ? "bg-teal-700" : "bg-yellow-500"}`} />
-                      {entry.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              </ResponsiveContainer>
             </div>
           </>
         )}
@@ -326,5 +351,3 @@ function Dashboard() {
     </div>
   );
 }
-
-export default Dashboard;
