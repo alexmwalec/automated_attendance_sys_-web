@@ -231,8 +231,8 @@ function Profile() {
 
         {/* Form */}
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6">
-          <h2 className="text-xl font-semibold text-teal-700 mb-4">
-            {editingIndex !== null ? "Edit User" : "Add New User"}
+          <h2 className="text-xl font-normal text-teal-700 mb-4">
+            {editingIndex !== null ? "Edit User" : "Create User Profile"}
           </h2>
 
           {duplicateError && (
@@ -335,7 +335,7 @@ function Profile() {
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
             {editingIndex !== null && (
               <button type="button" onClick={handleCancelEdit}
-                className="rounded-full bg-gray-200 px-6 py-2 font-semibold text-gray-700 shadow-md transition-colors hover:bg-teal-100">
+                className="rounded-full bg-gray-200 px-6 py-2 font-medium text-gray-700 shadow-md transition-colors hover:bg-teal-100">
                 Cancel
               </button>
             )}
@@ -343,13 +343,13 @@ function Profile() {
               type="button"
               onClick={handleAddUser}
               disabled={!isFormValid}
-              className={`rounded-full px-6 py-2 font-semibold shadow-md transition-colors ${
+              className={`rounded-full px-6 py-2 font-medium shadow-md transition-colors ${
                 isFormValid
                   ? "bg-teal-600 hover:bg-teal-500 text-white cursor-pointer"
                   : "bg-gray-300 text-gray-600 cursor-not-allowed"
               }`}
             >
-              {editingIndex !== null ? "Save Changes" : "Add User"}
+              {editingIndex !== null ? "Save Changes" : "Confirm Profile"}
             </button>
           </div>
         </div>
