@@ -46,7 +46,7 @@ function StatCard({ label, value, sub, accent }) {
   );
 }
 
-export default function Dashboard({ analyticsMode = false }) {
+export default function Dashboard() {
   // Raw Firestore data
   const [courses, setCourses] = useState([]);
   const [students, setStudents] = useState([]);
@@ -57,9 +57,9 @@ export default function Dashboard({ analyticsMode = false }) {
   const [selYear, setSelYear] = useState("all");
   const [selDept, setSelDept] = useState("");
   const [selProgram, setSelProgram] = useState("");
-  const [selStudent, setSelStudent] = useState(""); // Student RegNo string
+  const [selStudent, setSelStudent] = useState(""); 
 
-  // Fetch: courses 
+  // 1. Fetch: courses (The source for Department and Program lists)
   useEffect(() => {
     return onSnapshot(collection(db, "courses"), snap => {
       setCourses(snap.docs.map(d => ({
@@ -71,7 +71,7 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, []);
 
-  // Fetch: students
+  // 2. Fetch: students
   useEffect(() => {
     return onSnapshot(collection(db, "students"), snap => {
       setStudents(snap.docs.map(d => ({
@@ -85,7 +85,7 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, []);
 
-  // Fetch: attendance
+  // 3. Fetch: attendance
   useEffect(() => {
     setLoading(true);
     return onSnapshot(collection(db, "attendance"), snap => {
@@ -94,9 +94,16 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, []);
 
-  // ── Logic: Derived Data for Dropdowns ──
-  const uniqueDepts = useMemo(() => [...new Set(students.map(s => s.department))].filter(Boolean).sort(), [students]);
-  const uniqueProgs = useMemo(() => [...new Set(students.map(s => s.program))].filter(Boolean).sort(), [students]);
+  // ── Logic: Extracting unique lists from COURSES for the filters ──
+  const uniqueDepts = useMemo(() => {
+    const depts = courses.map(c => c.department).filter(Boolean);
+    return [...new Set(depts)].sort();
+  }, [courses]);
+
+  const uniqueProgs = useMemo(() => {
+    const progs = courses.map(c => c.program).filter(Boolean);
+    return [...new Set(progs)].sort();
+  }, [courses]);
 
   // Logic: Filter students list based on Dept/Program/Year selection
   const filteredStudentOptions = useMemo(() => {
@@ -112,7 +119,7 @@ export default function Dashboard({ analyticsMode = false }) {
   const flatEntries = useMemo(() => {
     let docs = attendance;
 
-    // Filter by Dept/Program (Mapping via courses)
+    // A. Filter Attendance by Course metadata (Dept/Program)
     if (selDept || selProgram) {
       const validCourseIds = new Set(
         courses
@@ -122,6 +129,7 @@ export default function Dashboard({ analyticsMode = false }) {
       docs = docs.filter(d => validCourseIds.has(d.courseCode));
     }
 
+    // B. Flatten attendance lists into single rows
     const rows = [];
     docs.forEach(doc => {
       const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
@@ -135,26 +143,25 @@ export default function Dashboard({ analyticsMode = false }) {
       });
     });
 
-    // Final filter by Student or Year
+    // C. Final Filter: By Student or by Student Year
     let result = rows;
     if (selStudent) {
       result = result.filter(r => r.regNo === selStudent);
-    } else if (selYear !== "all" || selDept || selProgram) {
-      // If no specific student, filter rows by students who match the current criteria
-      const validRegNos = new Set(filteredStudentOptions.map(s => s.regNo));
-      result = result.filter(r => validRegNos.has(r.regNo));
+    } else if (selYear !== "all") {
+      // Create a set of RegNos belonging to that year
+      const yearRegNos = new Set(students.filter(s => String(s.year) === selYear).map(s => s.regNo));
+      result = result.filter(r => yearRegNos.has(r.regNo));
     }
 
     return result;
-  }, [attendance, selDept, selProgram, selStudent, selYear, courses, filteredStudentOptions]);
+  }, [attendance, selDept, selProgram, selStudent, selYear, courses, students]);
 
-  // Stats
+  // ── Stats Calculations ──
   const totalPresent = flatEntries.filter(e => e.status === "Present").length;
   const totalAbsent  = flatEntries.filter(e => e.status !== "Present").length;
   const total        = flatEntries.length;
   const attendanceRate = pct(totalPresent, total);
 
-  // Charts
   const trendData = useMemo(() => {
     const map = {};
     flatEntries.forEach(e => {
@@ -171,7 +178,7 @@ export default function Dashboard({ analyticsMode = false }) {
       if (!map[e.courseCode]) map[e.courseCode] = { course: e.courseCode, Present: 0, Absent: 0 };
       e.status === "Present" ? map[e.courseCode].Present++ : map[e.courseCode].Absent++;
     });
-    return Object.values(map).slice(0, 10);
+    return Object.values(map).sort((a, b) => (b.Present + b.Absent) - (a.Present + a.Absent)).slice(0, 10);
   }, [flatEntries]);
 
   const clearAll = useCallback(() => {
@@ -187,49 +194,44 @@ export default function Dashboard({ analyticsMode = false }) {
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
-        {/* Header */}
         <div className="relative mb-5 flex flex-col gap-3 rounded-2xl bg-teal-500 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 shadow-md">
           <div>
-            <h1 className="text-white text-lg tracking-tight font-bold">
-              Attendance Analytics
-            </h1>
-            <p className="text-teal-100 text-xs">Live tracking and student performance</p>
+            <h1 className="text-white text-lg tracking-tight font-bold">University Attendance Dashboard</h1>
+            <p className="text-teal-100 text-xs">Analytics across all Departments and Programs</p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-            {hasFilter && (
-              <button onClick={clearAll} className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition font-medium">
-                Reset All Filters
-              </button>
-            )}
-          </div>
+          {hasFilter && (
+            <button onClick={clearAll} className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition font-medium">
+              Clear Filters
+            </button>
+          )}
         </div>
 
-        {/* Filters */}
+        {/* Filters Section */}
         <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Data Filters</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filter Analytics</p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             
-            {/* Dept Dropdown */}
+            {/* Dept */}
             <select value={selDept} onChange={e => {setSelDept(e.target.value); setSelStudent("");}} className={selectClass}>
               <option value="">All Departments</option>
               {uniqueDepts.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
 
-            {/* Program Dropdown */}
+            {/* Program */}
             <select value={selProgram} onChange={e => {setSelProgram(e.target.value); setSelStudent("");}} className={selectClass}>
               <option value="">All Programs</option>
               {uniqueProgs.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
 
-            {/* Year Dropdown */}
+            {/* Year */}
             <select value={selYear} onChange={e => {setSelYear(e.target.value); setSelStudent("");}} className={selectClass}>
               <option value="all">All Years</option>
               {["1","2","3","4","5"].map(y => <option key={y} value={y}>Year {y}</option>)}
             </select>
 
-            {/* Student Dropdown (Dynamically Filtered) */}
+            {/* Student */}
             <select value={selStudent} onChange={e => setSelStudent(e.target.value)} className={selectClass}>
-              <option value="">{selDept ? `All Students in ${selDept}` : "All Students (Across Uni)"}</option>
+              <option value="">{selDept ? `All Students in ${selDept}` : "Select Student (All)"}</option>
               {filteredStudentOptions.map(s => (
                 <option key={s.regNo} value={s.regNo}>{s.name} ({s.regNo})</option>
               ))}
@@ -249,9 +251,8 @@ export default function Dashboard({ analyticsMode = false }) {
             </div>
 
             <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
-              {/* Engagement Pie */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col items-center">
-                <h3 className="font-bold text-gray-700 text-sm mb-3 self-start">Engagement Ratio</h3>
+                <h3 className="font-bold text-gray-700 text-sm mb-3 self-start">Overall Engagement</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
                     <Pie data={[{name:"Present", value:totalPresent}, {name:"Absent", value:totalAbsent}]} innerRadius={55} outerRadius={80} paddingAngle={5} dataKey="value">
@@ -262,9 +263,8 @@ export default function Dashboard({ analyticsMode = false }) {
                 </ResponsiveContainer>
               </div>
 
-              {/* Timeline Chart */}
               <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm xl:col-span-2">
-                <h3 className="font-bold text-gray-700 text-sm mb-4">Historical Timeline</h3>
+                <h3 className="font-bold text-gray-700 text-sm mb-4">Historical Trend</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -278,9 +278,8 @@ export default function Dashboard({ analyticsMode = false }) {
               </div>
             </div>
 
-            {/* Course Breakdown */}
             <div className="mb-5 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <h3 className="font-bold text-gray-700 text-sm mb-4">Distribution by Course</h3>
+              <h3 className="font-bold text-gray-700 text-sm mb-4">Volume by Course</h3>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={byCourseData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
