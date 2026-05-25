@@ -9,17 +9,19 @@ import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "../firebase";
 import Sidebar from "../components/sidebar";
 
-// Palette 
+//pallette
 const PRESENT_COLOR = "#10b981";  
 const ABSENT_COLOR  = "#ef4444";  
 
-// Helpers
+//Helper functions
 function pct(a, total) {
   return total === 0 ? 0 : Math.round((a / total) * 100);
 }
 
 function getISOWeek(date) {
-  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const target = new Date(Date.UTC(date.getFullYear(), 
+                                   date.getMonth(), 
+                                   date.getDate()));
   const dayNr = (target.getUTCDay() + 6) % 7;
   target.setUTCDate(target.getUTCDate() - dayNr + 3);
   const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
