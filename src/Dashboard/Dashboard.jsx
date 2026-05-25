@@ -29,19 +29,14 @@ function getISOWeek(date) {
   return 1 + Math.round(diff / 604800000);
 }
 
-function getMonthLabel(date) {
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  return `${date.getUTCFullYear()}-${month}`;
-}
-
-function getWeekdayLabel(date) {
-  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][date.getDay()];
-}
-
-
 function getWeekLabel(date) {
   const week = String(getISOWeek(date)).padStart(2, "0");
   return `${date.getUTCFullYear()}-W${week}`;
+}
+
+function getMonthLabel(date) {
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${month}`;
 }
 
 function parseAttendanceDate(value) {
