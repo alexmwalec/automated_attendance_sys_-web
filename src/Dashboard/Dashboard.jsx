@@ -49,7 +49,8 @@ function parseAttendanceDate(value) {
 }
 
 function getWeekdayLabel(date) {
-  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][date.getDay()];
+  return ["Sunday", "Monday", "Tuesday", "Wednesday", 
+          "Thursday", "Friday", "Saturday"][date.getDay()];
 }
 
 function normalizeCourseList(value) {
