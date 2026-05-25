@@ -123,19 +123,19 @@ export default function Dashboard({ analyticsMode = false }) {
   const [selCourse, setSelCourse] = useState(""); 
   const [selStudent, setSelStudent] = useState(""); 
 
-  // 1. Fetch Courses
+  //first thing, fetch course data from firesstore
   useEffect(() => {
     return onSnapshot(collection(db, "courses"), (snap) => {
       setCourses(snap.docs.map(d => ({
         id: d.id,
         ...d.data(),
         courseName: d.data().courseName || d.id,
-        department: d.data().department || "Unassigned",
+        department: d.data().department || "Unkown",
       })));
     });
   }, []);
 
-  // 2. Fetch Students
+  // 2. then fetch student data
   useEffect(() => {
     return onSnapshot(collection(db, "students"), (snap) => {
       setStudents(snap.docs.map(d => ({
@@ -145,12 +145,12 @@ export default function Dashboard({ analyticsMode = false }) {
         year: String(d.data().year || d.data().years || ""),
         department: d.data().department || "",
         program: d.data().program || "",
-        enrolledCourses: d.data().assignedCourses || d.data().courses || [], // Expecting array or comma string
+        enrolledCourses: d.data().assignedCourses || d.data().courses || [], 
       })));
     });
   }, []);
 
-  // 3. Fetch Attendance
+  // 3. finally, fetch attendance data from the same firestore
   useEffect(() => {
     setLoading(true);
     return onSnapshot(collection(db, "attendance"), (snap) => {
@@ -158,7 +158,7 @@ export default function Dashboard({ analyticsMode = false }) {
       setLoading(false);
     });
   }, []);
-
+  // I will start from here tomorrow
   // Logic: Derived Filter Options
   const uniqueDepts = useMemo(() => {
     const depts = courses.map(c => c.department).filter(d => d && d !== "Unassigned");
