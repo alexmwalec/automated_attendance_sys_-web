@@ -29,6 +29,12 @@ function getISOWeek(date) {
   return 1 + Math.round(diff / 604800000);
 }
 
+function getWeekdayLabel(date) {
+  return ["Sunday", "Monday", "Tuesday", "Wednesday", 
+          "Thursday", "Friday", "Saturday"][date.getDay()];
+}
+
+
 function getWeekLabel(date) {
   const week = String(getISOWeek(date)).padStart(2, "0");
   return `${date.getUTCFullYear()}-W${week}`;
@@ -46,11 +52,6 @@ function parseAttendanceDate(value) {
   const normalized = String(value).replace(/\s+/g, "T");
   const altDate = new Date(normalized);
   return Number.isNaN(altDate) ? null : altDate;
-}
-
-function getWeekdayLabel(date) {
-  return ["Sunday", "Monday", "Tuesday", "Wednesday", 
-          "Thursday", "Friday", "Saturday"][date.getDay()];
 }
 
 function normalizeCourseList(value) {
