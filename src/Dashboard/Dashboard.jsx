@@ -526,6 +526,109 @@ export default function Dashboard() {
                     )}
                 </div>
             </div>
+
+            <div className="grid grid-cols-1 gap-5">
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <h3 className="font-bold text-gray-700 text-sm mb-4">Daily Attendance Trends</h3>
+                {hasChartData ? (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={trendData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend verticalAlign="bottom" height={24} iconType="circle" />
+                      <Line type="monotone" dataKey="Present" stroke={PRESENT_COLOR} strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="Absent" stroke={ABSENT_COLOR} strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <EmptyChartState filtered={hasActiveFilters} />
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="font-bold text-gray-700 text-sm">Weekly Engagement Consistency</h3>
+                    <span className="text-xs text-gray-500">Avg {weeklyConsistencyAvg}%</span>
+                  </div>
+                  {weeklyAttendancePercentData.length ? (
+                    <ResponsiveContainer width="100%" height={240}>
+                      <LineChart data={weeklyAttendancePercentData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Line type="monotone" dataKey="rate" stroke="#0d9488" strokeWidth={2} dot={{ r: 3 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <EmptyChartState filtered={hasActiveFilters} />
+                  )}
+                </div>
+
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="font-bold text-gray-700 text-sm">Monthly Engagement Consistency</h3>
+                    <span className="text-xs text-gray-500">Avg {monthlyConsistencyAvg}%</span>
+                  </div>
+                  {monthlyAttendancePercentData.length ? (
+                    <ResponsiveContainer width="100%" height={240}>
+                      <LineChart data={monthlyAttendancePercentData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Line type="monotone" dataKey="rate" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <EmptyChartState filtered={hasActiveFilters} />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                  <h3 className="font-bold text-gray-700 text-sm mb-4">Weekly Attendance Change</h3>
+                  {weeklyAttendanceData.length ? (
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={weeklyAttendanceData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend verticalAlign="bottom" height={24} iconType="circle" />
+                        <Bar dataKey="Present" fill={PRESENT_COLOR} />
+                        <Bar dataKey="Absent" fill={ABSENT_COLOR} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <EmptyChartState filtered={hasActiveFilters} />
+                  )}
+                </div>
+
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                  <h3 className="font-bold text-gray-700 text-sm mb-4">Monthly Attendance Change</h3>
+                  {monthlyAttendanceData.length ? (
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={monthlyAttendanceData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend verticalAlign="bottom" height={24} iconType="circle" />
+                        <Bar dataKey="Present" fill={PRESENT_COLOR} />
+                        <Bar dataKey="Absent" fill={ABSENT_COLOR} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <EmptyChartState filtered={hasActiveFilters} />
+                  )}
+                </div>
+              </div>
+            </div>
           </>
         )}
       </main>
