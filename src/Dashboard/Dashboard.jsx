@@ -142,9 +142,9 @@ export default function Dashboard({ analyticsMode = false }) {
         id: d.id,
         regNo: d.data().regNo || d.id,
         name: `${d.data().name || ""} ${d.data().surname || ""}`.trim(),
+        program: d.data().program || "",
         year: String(d.data().year || d.data().years || ""),
         department: d.data().department || "",
-        program: d.data().program || "",
         enrolledCourses: d.data().assignedCourses || d.data().courses || [], 
       })));
     });
@@ -158,6 +158,9 @@ export default function Dashboard({ analyticsMode = false }) {
       setLoading(false);
     });
   }, []);
+
+
+
   // I will start from here tomorrow
   // Logic: Derived Filter Options
   const uniqueDepts = useMemo(() => {
