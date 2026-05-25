@@ -604,7 +604,10 @@ export default function Dashboard({ analyticsMode = false }) {
       const date = new Date(entry.date);
       if (Number.isNaN(date)) return;
       const period = getMonthLabel(date);
-      if (!map[period]) map[period] = { period, Present: 0, Absent: 0, total: 0 };
+      if (!map[period]) map[period] = { period,
+                                        Present: 0,
+                                        Absent: 0, 
+                                        total: 0 };
       if (entry.status === "Present") map[period].Present += 1;
       else map[period].Absent += 1;
       map[period].total += 1;
