@@ -34,7 +34,6 @@ function getWeekdayLabel(date) {
           "Thursday", "Friday", "Saturday"][date.getDay()];
 }
 
-
 function getWeekLabel(date) {
   const week = String(getISOWeek(date)).padStart(2, "0");
   return `${date.getUTCFullYear()}-W${week}`;
@@ -110,14 +109,14 @@ function EmptyChartState({ filtered }) {
 export default function Dashboard({ analyticsMode = false }) {
   const navigate = useNavigate();
 
-  // Raw Firestore data
-  const [courses, setCourses] = useState([]);
-  const [students, setStudents] = useState([]);
-  const [attendance, setAttendance] = useState([]);   
+  //the firestore data
   const [loading, setLoading] = useState(true);
+  const [courses, setCourses] = useState([]);
+  const [attendance, setAttendance] = useState([]);  
+  const [students, setStudents] = useState([]); 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  // Filters
+  //then filter
   const [selYear, setSelYear] = useState("all");
   const [selDept, setSelDept] = useState("");
   const [selProgram, setSelProgram] = useState("");
