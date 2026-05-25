@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area
 } from "recharts";
 import { collection, onSnapshot, query } from "firebase/firestore";
@@ -15,6 +15,25 @@ const ABSENT_COLOR  = "#ef4444";
 // Helpers
 function pct(a, total) {
   return total === 0 ? 0 : Math.round((a / total) * 100);
+}
+
+function getISOWeek(date) {
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNr = (target.getUTCDay() + 6) % 7;
+  target.setUTCDate(target.getUTCDate() - dayNr + 3);
+  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+  const diff = target - firstThursday;
+  return 1 + Math.round(diff / 604800000);
+}
+
+function getWeekLabel(date) {
+  const week = String(getISOWeek(date)).padStart(2, "0");
+  return `${date.getUTCFullYear()}-W${week}`;
+}
+
+function getMonthLabel(date) {
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${month}`;
 }
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -198,6 +217,59 @@ export default function Dashboard() {
     return { total, present, absent, rate: pct(present, total) };
   }, [flatEntries]);
 
+  const courseDeptMap = useMemo(() => {
+    return Object.fromEntries(courses.map(c => [c.id, c.department || "Unassigned"]));
+  }, [courses]);
+
+  const departmentAttendanceSummary = useMemo(() => {
+    const byDept = {};
+
+    attendance.forEach(doc => {
+      const dept = courseDeptMap[doc.courseCode] || "Unassigned";
+      const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
+      list.forEach(entry => {
+        if (!entry || !entry.status) return;
+        const row = byDept[dept] ?? { present: 0, total: 0 };
+        row.total += 1;
+        if (entry.status === "Present") row.present += 1;
+        byDept[dept] = row;
+      });
+    });
+
+    const deptEntries = Object.entries(byDept)
+      .filter(([, row]) => row.total > 0)
+      .map(([department, row]) => ({
+        department,
+        present: row.present,
+        total: row.total,
+        rate: pct(row.present, row.total),
+      }));
+
+    if (!deptEntries.length) return { best: null, worst: null };
+
+    deptEntries.sort((a, b) => b.rate - a.rate || b.total - a.total);
+    return {
+      best: deptEntries[0],
+      worst: deptEntries[deptEntries.length - 1],
+    };
+  }, [attendance, courseDeptMap]);
+
+  const semesterAttendanceAverage = useMemo(() => {
+    let total = 0;
+    let present = 0;
+
+    attendance.forEach(doc => {
+      const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
+      list.forEach(entry => {
+        if (!entry || !entry.status) return;
+        total += 1;
+        if (entry.status === "Present") present += 1;
+      });
+    });
+
+    return pct(present, total);
+  }, [attendance]);
+
   const todayEntries = useMemo(() => {
     return flatEntries.filter(entry => entry.date === todayStr);
   }, [flatEntries, todayStr]);
@@ -239,6 +311,62 @@ export default function Dashboard() {
     });
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
   }, [flatEntries]);
+
+  const weeklyAttendanceData = useMemo(() => {
+    const map = {};
+    flatEntries.forEach(entry => {
+      const date = new Date(entry.date);
+      if (Number.isNaN(date)) return;
+      const period = getWeekLabel(date);
+      if (!map[period]) map[period] = { period, Present: 0, Absent: 0, total: 0 };
+      if (entry.status === "Present") map[period].Present += 1;
+      else map[period].Absent += 1;
+      map[period].total += 1;
+    });
+    return Object.values(map).sort((a, b) => a.period.localeCompare(b.period));
+  }, [flatEntries]);
+
+  const monthlyAttendanceData = useMemo(() => {
+    const map = {};
+    flatEntries.forEach(entry => {
+      const date = new Date(entry.date);
+      if (Number.isNaN(date)) return;
+      const period = getMonthLabel(date);
+      if (!map[period]) map[period] = { period, Present: 0, Absent: 0, total: 0 };
+      if (entry.status === "Present") map[period].Present += 1;
+      else map[period].Absent += 1;
+      map[period].total += 1;
+    });
+    return Object.values(map).sort((a, b) => a.period.localeCompare(b.period));
+  }, [flatEntries]);
+
+  const weeklyAttendancePercentData = useMemo(() => {
+    return weeklyAttendanceData.map(item => ({
+      period: item.period,
+      rate: pct(item.Present, item.total),
+      Present: item.Present,
+      Absent: item.Absent,
+    }));
+  }, [weeklyAttendanceData]);
+
+  const monthlyAttendancePercentData = useMemo(() => {
+    return monthlyAttendanceData.map(item => ({
+      period: item.period,
+      rate: pct(item.Present, item.total),
+      Present: item.Present,
+      Absent: item.Absent,
+    }));
+  }, [monthlyAttendanceData]);
+
+  const weeklyConsistencyAvg = useMemo(() => {
+    if (!weeklyAttendancePercentData.length) return 0;
+    return Math.round(weeklyAttendancePercentData.reduce((sum, item) => sum + item.rate, 0) / weeklyAttendancePercentData.length);
+  }, [weeklyAttendancePercentData]);
+
+  const monthlyConsistencyAvg = useMemo(() => {
+    if (!monthlyAttendancePercentData.length) return 0;
+    return Math.round(monthlyAttendancePercentData.reduce((sum, item) => sum + item.rate, 0) / monthlyAttendancePercentData.length);
+  }, [monthlyAttendancePercentData]);
 
   const clearAll = useCallback(() => {
     setSelYear("all"); setSelDept("");
@@ -339,6 +467,25 @@ export default function Dashboard() {
               <StatCard label="Absent Today" value={todayStats.absent} accent="#f43f5e" />
               <StatCard label="Attendance % Today" value={`${todayStats.rate}%`} accent={todayStats.rate >= 75 ? "#10b981" : "#f97316"} />
               <StatCard label="Students At Risk" value={atRiskCount} accent="#f97316" />
+            </div>
+
+            <div className="mb-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
+              <StatCard
+                label="Best Department Attendance"
+                value={departmentAttendanceSummary.best ? `${departmentAttendanceSummary.best.department} (${departmentAttendanceSummary.best.rate}%)` : "N/A"}
+                accent="#0d9488"
+              />
+              <StatCard
+                label="Lowest Department Attendance"
+                value={departmentAttendanceSummary.worst ? `${departmentAttendanceSummary.worst.department} (${departmentAttendanceSummary.worst.rate}%)` : "N/A"}
+                accent="#ef4444"
+              />
+              <StatCard
+                label="Semester Attendance Average"
+                value={`${semesterAttendanceAverage}%`}
+                accent="#2563eb"
+                sub="Overall attendance across current records"
+              />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
