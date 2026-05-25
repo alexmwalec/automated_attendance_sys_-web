@@ -34,6 +34,10 @@ function getMonthLabel(date) {
   return `${date.getUTCFullYear()}-${month}`;
 }
 
+function getWeekdayLabel(date) {
+  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][date.getDay()];
+}
+
 
 function getWeekLabel(date) {
   const week = String(getISOWeek(date)).padStart(2, "0");
