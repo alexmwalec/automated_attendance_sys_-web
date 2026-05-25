@@ -149,6 +149,8 @@ export default function Dashboard() {
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [students, selDept, selYear, selCourse]);
 
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+
   // Main Data Processing
   const flatEntries = useMemo(() => {
     let filteredAttendance = attendance;
@@ -195,6 +197,38 @@ export default function Dashboard() {
     const absent = total - present;
     return { total, present, absent, rate: pct(present, total) };
   }, [flatEntries]);
+
+  const todayEntries = useMemo(() => {
+    return flatEntries.filter(entry => entry.date === todayStr);
+  }, [flatEntries, todayStr]);
+
+  const todayStats = useMemo(() => {
+    const total = todayEntries.length;
+    const present = todayEntries.filter(e => e.status === "Present").length;
+    const absent = total - present;
+    return {
+      total,
+      present,
+      absent,
+      rate: pct(present, total)
+    };
+  }, [todayEntries]);
+
+  const atRiskCount = useMemo(() => {
+    const studentMap = {};
+    const validRegNos = new Set(filteredStudentOptions.map(s => s.regNo));
+
+    flatEntries.forEach(entry => {
+      if (validRegNos.size && !validRegNos.has(entry.regNo)) return;
+      if (!entry.regNo) return;
+      const row = studentMap[entry.regNo] ?? { present: 0, total: 0 };
+      row.total += 1;
+      if (entry.status === "Present") row.present += 1;
+      studentMap[entry.regNo] = row;
+    });
+
+    return Object.values(studentMap).filter(row => row.total > 0 && pct(row.present, row.total) < 75).length;
+  }, [flatEntries, filteredStudentOptions]);
 
   const trendData = useMemo(() => {
     const map = {};
@@ -299,11 +333,12 @@ export default function Dashboard() {
           <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>
         ) : (
           <>
-            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard label="Total Records" value={stats.total} accent="#0d9488" />
-              <StatCard label="Present" value={stats.present} accent="#10b981" />
-              <StatCard label="Absent" value={stats.absent} accent="#f43f5e" />
-              <StatCard label="Rate" value={`${stats.rate}%`} accent={stats.rate >= 75 ? "#10b981" : "#f97316"} />
+            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <StatCard label="Total Registered Students" value={filteredStudentOptions.length} accent="#0d9488" />
+              <StatCard label="Present Today" value={todayStats.present} accent="#10b981" />
+              <StatCard label="Absent Today" value={todayStats.absent} accent="#f43f5e" />
+              <StatCard label="Attendance % Today" value={`${todayStats.rate}%`} accent={todayStats.rate >= 75 ? "#10b981" : "#f97316"} />
+              <StatCard label="Students At Risk" value={atRiskCount} accent="#f97316" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
