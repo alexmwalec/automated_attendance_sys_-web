@@ -15,7 +15,7 @@ import {
 const TOAST_DURATION = 4000;
 const UNDO_DURATION  = 5000;
 
-// ── Reusable Toast ────────────────────────────────────────────────────────────
+//Reusable Toast
 function Toast({ toast, onClose }) {
   const [progress, setProgress] = useState(100);
   const intervalRef = useRef(null);
@@ -36,7 +36,7 @@ function Toast({ toast, onClose }) {
 
   if (!toast) return null;
 
-  // Every toast shade is teal — darker for errors/warnings so they still feel distinct
+  // Every toast shade is teal darker for errors/warnings so they still feel distinct
   const bgColors = {
     success: "bg-teal-600",
     error:   "bg-teal-800",
@@ -103,7 +103,7 @@ function Toast({ toast, onClose }) {
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────────
+//Main Component
 function AssignInvigilator() {
   const [formData, setFormData] = useState({
     course: "",
@@ -141,7 +141,7 @@ function AssignInvigilator() {
   const navigate = useNavigate();
   const today    = new Date().toISOString().split("T")[0];
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
+  //Helpers
   const parseDate = (dateStr) => {
     if (!dateStr) return new Date(0);
     const parsed = new Date(dateStr);
@@ -159,7 +159,7 @@ function AssignInvigilator() {
     return parseDate(sortDate).getTime();
   };
 
-  // ── Toast helper ──────────────────────────────────────────────────────────────
+  //Toast helper
   const showToast = (type, message, extra = {}) => {
     clearTimeout(toastTimerRef.current);
     const duration = extra.duration || TOAST_DURATION;
@@ -169,7 +169,7 @@ function AssignInvigilator() {
     }
   };
 
-  // ── Firestore listeners ───────────────────────────────────────────────────────
+  //Firestore listeners
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "users"), (snap) => {
       setAllInvigilators(snap.docs.map((d) => {
@@ -208,7 +208,7 @@ function AssignInvigilator() {
     return () => unsub();
   }, []);
 
-  // ── Form helpers ──────────────────────────────────────────────────────────────
+  //Form helpers
   const isValidInvigilator = (name) =>
     allInvigilators.some((u) => u.name.toLowerCase() === name.trim().toLowerCase());
 
@@ -234,7 +234,7 @@ function AssignInvigilator() {
     setShowSuggestions(false);
   };
 
-  // ── Assign / Update ───────────────────────────────────────────────────────────
+  //Assign / Update
   const handleAssign = async () => {
     if (!formData.course || !formData.date || !formData.time || !formData.room || !formData.invigilator) {
       showToast("warning", "Please fill in all fields before assigning.");
@@ -278,7 +278,7 @@ function AssignInvigilator() {
     }
   };
 
-  // ── Edit ──────────────────────────────────────────────────────────────────────
+  //Edit
   const handleEdit = (item) => {
     setFormData({
       course: item.course,
@@ -297,7 +297,7 @@ function AssignInvigilator() {
     showToast("info", "Edit cancelled. Form has been cleared.");
   };
 
-  // ── Delete with Undo ──────────────────────────────────────────────────────────
+  //Delete with Undo
   const commitDelete = async (id) => {
     try {
       await deleteDoc(doc(db, "exam_assignments", id));
@@ -334,7 +334,7 @@ function AssignInvigilator() {
     });
   };
 
-  // ── Filtered list ─────────────────────────────────────────────────────────────
+  // Filtered list
   const filteredAssignments = assignedInvigilators.filter((item) => {
     if (deletedIds.has(item.id)) return false;
     if (filterInvigilator && !item.invigilator.toLowerCase().includes(filterInvigilator.toLowerCase())) return false;
@@ -342,7 +342,7 @@ function AssignInvigilator() {
     return true;
   });
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  //Rendering
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 sm:h-screen sm:flex-row">
       <Sidebar />
