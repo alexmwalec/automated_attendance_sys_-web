@@ -36,7 +36,6 @@ function Toast({ toast, onClose }) {
 
   if (!toast) return null;
 
-  // Every toast shade is teal darker for errors/warnings so they still feel distinct
   const bgColors = {
     success: "bg-teal-600",
     error:   "bg-teal-800",
@@ -46,25 +45,21 @@ function Toast({ toast, onClose }) {
 
   const icons = {
     success: (
-      // Checkmark
       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
       </svg>
     ),
     error: (
-      // X circle
       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M12 3a9 9 0 100 18A9 9 0 0012 3z" />
       </svg>
     ),
     info: (
-      // Info circle
       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z" />
       </svg>
     ),
     warning: (
-      // Exclamation triangle
       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
       </svg>
@@ -113,33 +108,53 @@ function AssignInvigilator() {
     invigilator: ""
   });
 
-  const [editingId, setEditingId]           = useState(null);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [editingId, setEditingId]               = useState(null);
+  const [showProfileMenu, setShowProfileMenu]   = useState(false);
   const [assignedInvigilators, setAssignedInvigilators] = useState([]);
-  const [allInvigilators, setAllInvigilators] = useState([]);
-  const [allCourses, setAllCourses]         = useState([]);
-  const [allRooms, setAllRooms]             = useState([]);
+  const [allInvigilators, setAllInvigilators]   = useState([]);
+  const [allCourses, setAllCourses]             = useState([]);
+  const [allRooms, setAllRooms]                 = useState([]);
 
   const [loadingInvigilators, setLoadingInvigilators] = useState(true);
-  const [loadingCourses, setLoadingCourses]   = useState(true);
-  const [loadingRooms, setLoadingRooms]       = useState(true);
+  const [loadingCourses, setLoadingCourses]     = useState(true);
+  const [loadingRooms, setLoadingRooms]         = useState(true);
   const [loadingAssignments, setLoadingAssignments] = useState(true);
 
-  const [suggestions, setSuggestions]       = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions]           = useState([]);
+  const [showSuggestions, setShowSuggestions]   = useState(false);
   const [invigilatorError, setInvigilatorError] = useState("");
 
-  const [activeToast, setActiveToast]       = useState(null);
-  const toastTimerRef                       = useRef(null);
+  const [activeToast, setActiveToast]           = useState(null);
+  const toastTimerRef                           = useRef(null);
 
-  const [deletedIds, setDeletedIds]         = useState(new Set());
-  const undoTimerRef                        = useRef(null);
+  const [deletedIds, setDeletedIds]             = useState(new Set());
+  const undoTimerRef                            = useRef(null);
 
-  const [filterInvigilator]                 = useState("");
-  const [filterCourse]                      = useState("");
+  const [filterInvigilator]                     = useState("");
+  const [filterCourse]                          = useState("");
+
+  // Refs for the portal-style dropdown
+  const invigilatorWrapperRef                   = useRef(null);
+  const invigilatorInputRef                     = useRef(null);
+  const [dropdownPos, setDropdownPos]           = useState({ top: 0, left: 0, width: 0 });
 
   const navigate = useNavigate();
   const today    = new Date().toISOString().split("T")[0];
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        invigilatorWrapperRef.current &&
+        !invigilatorWrapperRef.current.contains(e.target) &&
+        !e.target.closest("#invigilator-dropdown")
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   //Helpers
   const parseDate = (dateStr) => {
@@ -157,6 +172,14 @@ function AssignInvigilator() {
   const getAssignmentSortTime = (item) => {
     const sortDate = item.createdAt || item.updatedAt || item.date;
     return parseDate(sortDate).getTime();
+  };
+
+  // filtered matches when the user has typed something
+  const buildSuggestions = (query, names) => {
+    const q = query.trim().toLowerCase();
+    return q
+      ? names.filter((n) => n.toLowerCase().includes(q))
+      : [...names]; // show all when field is empty
   };
 
   //Toast helper
@@ -216,15 +239,32 @@ function AssignInvigilator() {
     formData.course && formData.date && formData.time && formData.room &&
     formData.invigilator && isValidInvigilator(formData.invigilator);
 
+  // filters correctly as the user types, and keeps dropdown position fresh
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
     if (name === "invigilator") {
       setInvigilatorError("");
-      const q = value.trim().toLowerCase();
-      setSuggestions(allInvigilators.map((u) => u.name).filter((n) => n.toLowerCase().includes(q)));
+      const allNames = allInvigilators.map((u) => u.name);
+      setSuggestions(buildSuggestions(value, allNames));
+      if (invigilatorInputRef.current) {
+        const rect = invigilatorInputRef.current.getBoundingClientRect();
+        setDropdownPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, width: rect.width });
+      }
       setShowSuggestions(true);
     }
+  };
+
+  
+  // so the fixed-position portal renders right below the input regardless of scroll / overflow
+  const handleInvigilatorFocus = () => {
+    const allNames = allInvigilators.map((u) => u.name);
+    setSuggestions(buildSuggestions(formData.invigilator, allNames));
+    if (invigilatorInputRef.current) {
+      const rect = invigilatorInputRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, width: rect.width });
+    }
+    setShowSuggestions(true);
   };
 
   const resetForm = () => {
@@ -309,7 +349,6 @@ function AssignInvigilator() {
   };
 
   const handleDelete = (item) => {
-    // Flush any previous pending delete immediately
     if (undoTimerRef.current) {
       clearTimeout(undoTimerRef.current);
       if (activeToast?.pendingDeleteId) commitDelete(activeToast.pendingDeleteId);
@@ -406,29 +445,53 @@ function AssignInvigilator() {
                     </select>
                   </td>
                   <td className="p-2 border border-gray-300">
-                    <div className="relative">
+                    {/* Wrapper only used for outside-click detection */}
+                    <div ref={invigilatorWrapperRef}>
                       <input
+                        ref={invigilatorInputRef}
                         type="text"
                         name="invigilator"
                         value={formData.invigilator}
                         onChange={handleFormChange}
-                        onFocus={() => setShowSuggestions(true)}
+                        onFocus={handleInvigilatorFocus}
                         className={`w-full px-2 py-1 text-sm border rounded ${invigilatorError ? "border-red-400 bg-red-50" : "border-gray-200"}`}
-                        placeholder="Search name..."
+                        placeholder={loadingInvigilators ? "Loading..." : "Type a name..."}
                         autoComplete="off"
+                        disabled={loadingInvigilators}
                       />
-                      {showSuggestions && suggestions.length > 0 && (
-                        <div className="absolute left-0 top-full z-50 mt-1 max-h-48 w-full min-w-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-                          {suggestions.map((name, i) => (
-                            <button key={i} type="button"
-                              onMouseDown={() => { setFormData({ ...formData, invigilator: name }); setShowSuggestions(false); }}
-                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2">
-                              {name}
-                            </button>
-                          ))}
-                        </div>
+                      {invigilatorError && (
+                        <p className="mt-1 text-xs text-red-500">{invigilatorError}</p>
                       )}
                     </div>
+
+                    {/* Portal-style dropdown: fixed position so it escapes overflow-x-auto clipping */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <div
+                        id="invigilator-dropdown"
+                        style={{
+                          position: "fixed",
+                          top: dropdownPos.top,
+                          left: dropdownPos.left,
+                          width: Math.max(dropdownPos.width, 220),
+                          zIndex: 9999,
+                        }}
+                        className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl">
+                        {suggestions.map((name, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onMouseDown={() => {
+                              setFormData((prev) => ({ ...prev, invigilator: name }));
+                              setInvigilatorError("");
+                              setShowSuggestions(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700"
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </td>
                 </tr>
               </tbody>
