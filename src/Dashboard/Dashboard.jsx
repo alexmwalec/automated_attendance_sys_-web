@@ -19,10 +19,10 @@ function pct(a, total) {
 }
 
 function getISOWeek(date) {
-  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const target = new Date(Date.UTC(date.getFullyears(), date.getMonth(), date.getDate()));
   const dayNr = (target.getUTCDay() + 6) % 7;
   target.setUTCDate(target.getUTCDate() - dayNr + 3);
-  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+  const firstThursday = new Date(Date.UTC(target.getUTCFullyears(), 0, 4));
   const diff = target - firstThursday;
   return 1 + Math.round(diff / 604800000);
 }
@@ -33,12 +33,12 @@ function getWeekdayLabel(date) {
 
 function getWeekLabel(date) {
   const week = String(getISOWeek(date)).padStart(2, "0");
-  return `${date.getUTCFullYear()}-W${week}`;
+  return `${date.getUTCFullyears()}-W${week}`;
 }
 
 function getMonthLabel(date) {
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  return `${date.getUTCFullYear()}-${month}`;
+  return `${date.getUTCFullyears()}-${month}`;
 }
 
 function parseAttendanceDate(value) {
@@ -97,7 +97,7 @@ function EmptyChartState({ filtered }) {
         {filtered ? "No records match these filters" : "No attendance records yet"}
       </p>
       <p className="mt-1 max-w-xs text-xs text-gray-500">
-        {filtered ? "Try a different department, course, year, or student." : "Charts will appear here after attendance is captured."}
+        {filtered ? "Try a different department, course, years, or student." : "Charts will appear here after attendance is captured."}
       </p>
     </div>
   );
@@ -114,7 +114,7 @@ export default function Dashboard({ analyticsMode = false }) {
   const [programs, setPrograms] = useState([]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  const [selYear, setSelYear] = useState("all");
+  const [selyears, setSelyears] = useState("all");
   const [selDept, setSelDept] = useState("");
   const [selProgram, setSelProgram] = useState("");
   const [selSession, setSelSession] = useState("");
@@ -141,7 +141,7 @@ export default function Dashboard({ analyticsMode = false }) {
         regNo: d.data().regNo || d.id,
         name: `${d.data().name || ""} ${d.data().surname || ""}`.trim(),
         program: d.data().program || "",
-        year: String(d.data().year || d.data().years || ""),
+        years: String(d.data().years || d.data().yearss || ""),
         department: d.data().department || "",
         enrolledCourses: d.data().assignedCourses || d.data().courses || [], 
       })));
@@ -211,7 +211,7 @@ export default function Dashboard({ analyticsMode = false }) {
     return students.filter(s => {
       if (selDept && s.department !== selDept) return false;
       if (selProgram && s.program !== selProgram) return false;
-      if (selYear !== "all" && s.year !== selYear) return false;
+      if (selyears !== "all" && s.years !== selyears) return false;
       
       if (selCourse) {
         const studentCourses = normalizeCourseList(s.enrolledCourses);
@@ -219,7 +219,7 @@ export default function Dashboard({ analyticsMode = false }) {
       }
       return true;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [students, selDept, selProgram, selYear, selCourse]);
+  }, [students, selDept, selProgram, selyears, selCourse]);
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
@@ -242,11 +242,11 @@ export default function Dashboard({ analyticsMode = false }) {
     filteredAttendance.forEach(doc => {
       const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
       list.forEach(entry => {
-        // Find student details to filter by program or year
+        // Find student details to filter by program or years
         const sInfo = students.find(s => s.regNo === entry.regNo);
         
         if (selProgram && sInfo?.program !== selProgram) return;
-        if (selYear !== "all" && sInfo?.year !== selYear) return;
+        if (selyears !== "all" && sInfo?.years !== selyears) return;
         if (selStudent && entry.regNo !== selStudent) return;
 
         rows.push({
@@ -259,7 +259,7 @@ export default function Dashboard({ analyticsMode = false }) {
     });
 
     return rows;
-  }, [attendance, selCourse, selDept, selStudent, selYear, selSession, selProgram, courses, students]);
+  }, [attendance, selCourse, selDept, selStudent, selyears, selSession, selProgram, courses, students]);
 
   const studentInfoByReg = useMemo(() => {
     return Object.fromEntries(students.map(s => [s.regNo, { ...s }]));
@@ -308,7 +308,7 @@ export default function Dashboard({ analyticsMode = false }) {
   }, [flatEntries, todayStr]);
 
   const clearAll = useCallback(() => {
-    setSelYear("all"); setSelDept("");
+    setSelyears("all"); setSelDept("");
     setSelProgram(""); setSelSession("");
     setSelCourse(""); setSelStudent("");
   }, []);
@@ -383,10 +383,10 @@ export default function Dashboard({ analyticsMode = false }) {
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Year</label>
-                <select value={selYear} onChange={e => setSelYear(e.target.value)} className={selectClass}>
-                  <option value="all">All Years</option>
-                  {["1","2","3","4","5"].map(y => <option key={y} value={y}>Year {y}</option>)}
+                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">years</label>
+                <select value={selyears} onChange={e => setSelyears(e.target.value)} className={selectClass}>
+                  <option value="all">All yearss</option>
+                  {["1","2","3","4","5"].map(y => <option key={y} value={y}>years {y}</option>)}
                 </select>
               </div>
 
