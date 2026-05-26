@@ -120,8 +120,12 @@ export default function Dashboard({ analyticsMode = false }) {
   const [selYear, setSelYear] = useState("all");
   const [selDept, setSelDept] = useState("");
   const [selProgram, setSelProgram] = useState("");
+  const [selSession, setSelSession] = useState("");
   const [selCourse, setSelCourse] = useState(""); 
   const [selStudent, setSelStudent] = useState(""); 
+
+  const [sessions, setSessions] = useState([]);
+  const [programs, setPrograms] = useState([]);
 
   //first thing, fetch course data from firesstore
   useEffect(() => {
@@ -146,6 +150,24 @@ export default function Dashboard({ analyticsMode = false }) {
         year: String(d.data().year || d.data().years || ""),
         department: d.data().department || "",
         enrolledCourses: d.data().assignedCourses || d.data().courses || [], 
+      })));
+    });
+  }, []);
+
+  useEffect(() => {
+    return onSnapshot(collection(db, "sessions"), (snap) => {
+      setSessions(snap.docs.map(d => ({
+        id: d.id,
+        name: d.data().name || d.data().session || d.id,
+      })));
+    });
+  }, []);
+
+  useEffect(() => {
+    return onSnapshot(collection(db, "programs"), (snap) => {
+      setPrograms(snap.docs.map(d => ({
+        id: d.id,
+        name: d.data().name || d.data().program || d.id,
       })));
     });
   }, []);
@@ -179,6 +201,7 @@ export default function Dashboard({ analyticsMode = false }) {
   const filteredStudentOptions = useMemo(() => {
     return students.filter(s => {
       if (selDept && s.department !== selDept) return false;
+      if (selProgram && s.program !== selProgram) return false;
       if (selYear !== "all" && s.year !== selYear) return false;
       
       // use course enrolled to filter students 
@@ -191,7 +214,7 @@ export default function Dashboard({ analyticsMode = false }) {
       
       return true;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [students, selDept, selYear, selCourse]);
+  }, [students, selDept, selProgram, selYear, selCourse]);
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
@@ -199,7 +222,23 @@ export default function Dashboard({ analyticsMode = false }) {
   const flatEntries = useMemo(() => {
     let filteredAttendance = attendance;
 
-    //fisrt use courses to filter 
+    // first filter by session and program if selected
+    if (selSession) {
+      filteredAttendance = filteredAttendance.filter(doc => {
+        return doc.session === selSession || doc.sessionId === selSession || doc.sessionName === selSession;
+      });
+    }
+
+    if (selProgram) {
+      const validProgramRegNos = new Set(students.filter(s => s.program === selProgram).map(s => s.regNo));
+      filteredAttendance = filteredAttendance.filter(doc => {
+        if (doc.program === selProgram || doc.programId === selProgram || doc.programName === selProgram) return true;
+        const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
+        return list.some(entry => validProgramRegNos.has(entry.regNo));
+      });
+    }
+
+    // then use courses to filter 
     if (selCourse) {
       filteredAttendance = filteredAttendance.filter(d => d.courseCode === selCourse);
     } else if (selDept) {
@@ -225,26 +264,32 @@ export default function Dashboard({ analyticsMode = false }) {
       return rows.filter(r => r.regNo === selStudent);
     }
     
-    // Filter by Year (since year is student metadata, not in attendance doc)
+    //use year to filter students
     if (selYear !== "all") {
         const validRegNos = new Set(students.filter(s => s.year === selYear).map(s => s.regNo));
         return rows.filter(r => validRegNos.has(r.regNo));
     }
 
     return rows;
-  }, [attendance, selCourse, selDept, selStudent, selYear, courses, students]);
+  }, [attendance, 
+     selCourse,
+     selDept, 
+     selStudent, 
+     selYear, 
+     courses, 
+     students]);
 
   const studentInfoByReg = useMemo(() => {
     return Object.fromEntries(students
       .filter(s => s.regNo)
       .map(s => [s.regNo, {
         regNo: s.regNo,
-        name: s.name || s.regNo,
         department: s.department || "Unknown",
         program: s.program || "Unknown",
+        name: s.name || s.regNo,
         year: s.year || "Unknown",
-        faculty: s.faculty || s.department || "Unknown",
         campus: s.campus || "Unknown",
+        faculty: s.faculty || s.department || "Unknown",
         enrolledCourses: normalizeCourseList(s.enrolledCourses),
       }])
     );
@@ -266,7 +311,13 @@ export default function Dashboard({ analyticsMode = false }) {
         const regNo = entry.regNo || "";
         if (!regNo) return;
 
-        const row = map[regNo] ?? { regNo, present: 0, absent: 0, total: 0, courses: new Set(), attendanceEntries: [] };
+        const row = map[regNo] ?? { regNo, 
+                                   present: 0, 
+                                   absent: 0, 
+                                   total: 0, 
+                                   courses: 
+                                   new Set(), 
+                                   attendanceEntries: [] };
         if (entry.status === "Present") row.present += 1;
         else row.absent += 1;
         row.total += 1;
@@ -651,10 +702,11 @@ export default function Dashboard({ analyticsMode = false }) {
 
   const clearAll = useCallback(() => {
     setSelYear("all"); setSelDept("");
+    setSelProgram(""); setSelSession("");
     setSelCourse(""); setSelStudent("");
   }, []);
 
-  const hasActiveFilters = selYear !== "all" || selDept || selCourse || selStudent;
+  const hasActiveFilters = selYear !== "all" || selDept || selProgram || selSession || selCourse || selStudent;
   const hasChartData = stats.total > 0;
 
   const selectClass = "w-full rounded-xl border border-teal-400 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 transition-all cursor-pointer appearance-none";
@@ -973,12 +1025,30 @@ export default function Dashboard({ analyticsMode = false }) {
         </div>
 
         {!analyticsMode && (
-          <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm overflow-x-auto">
             <div className="mb-3">
               <h2 className="text-xs font-bold uppercase text-gray-400">Filters</h2>
             </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <div className="min-w-[1200px] grid grid-cols-6 gap-3">
               
+              {/* Session */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Session</label>
+                <select value={selSession} onChange={e => setSelSession(e.target.value)} className={selectClass}>
+                  <option value="">All Sessions</option>
+                  {sessions.map(session => <option key={session.id} value={session.id}>{session.name}</option>)}
+                </select>
+              </div>
+
+              {/* Program */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Program</label>
+                <select value={selProgram} onChange={e => {setSelProgram(e.target.value); setSelStudent("");}} className={selectClass}>
+                  <option value="">All Programs</option>
+                  {programs.map(program => <option key={program.id} value={program.id}>{program.name}</option>)}
+                </select>
+              </div>
+
               {/* Department */}
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Department</label>
