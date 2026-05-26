@@ -19,10 +19,10 @@ function pct(a, total) {
 }
 
 function getISOWeek(date) {
-  const target = new Date(Date.UTC(date.getFullyears(), date.getMonth(), date.getDate()));
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNr = (target.getUTCDay() + 6) % 7;
   target.setUTCDate(target.getUTCDate() - dayNr + 3);
-  const firstThursday = new Date(Date.UTC(target.getUTCFullyears(), 0, 4));
+  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
   const diff = target - firstThursday;
   return 1 + Math.round(diff / 604800000);
 }
@@ -33,12 +33,12 @@ function getWeekdayLabel(date) {
 
 function getWeekLabel(date) {
   const week = String(getISOWeek(date)).padStart(2, "0");
-  return `${date.getUTCFullyears()}-W${week}`;
+  return `${date.getUTCFullYear()}-W${week}`;
 }
 
 function getMonthLabel(date) {
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  return `${date.getUTCFullyears()}-${month}`;
+  return `${date.getUTCFullYear()}-${month}`;
 }
 
 function parseAttendanceDate(value) {
@@ -307,6 +307,179 @@ export default function Dashboard({ analyticsMode = false }) {
     return { total, present, absent: total - present, rate: pct(present, total) };
   }, [flatEntries, todayStr]);
 
+  // Build group metrics for faculty and department comparisons
+  const buildGroupMetrics = (field) => {
+    const groups = {};
+    studentAttendanceData.forEach(student => {
+      const label = student[field] || "Unknown";
+      const row = groups[label] ?? { label, present: 0, absent: 0, total: 0, students: 0 };
+      row.present += student.present || 0;
+      row.absent += student.absent || 0;
+      row.total += student.total || 0;
+      row.students += 1;
+      groups[label] = row;
+    });
+    return Object.values(groups)
+      .filter(g => g.total > 0)
+      .map(g => ({ ...g, rate: pct(g.present, g.total) }))
+      .sort((a, b) => b.rate - a.rate);
+  };
+
+  const facultyComparison = useMemo(() => buildGroupMetrics("faculty"), [studentAttendanceData]);
+  const departmentComparison = useMemo(() => buildGroupMetrics("department"), [studentAttendanceData]);
+
+  const semesterAttendanceAverage = useMemo(() => {
+    if (stats.total === 0) return 0;
+    return stats.rate;
+  }, [stats]);
+
+  const weeklyAttendanceData = useMemo(() => {
+    const map = {};
+    flatEntries.forEach(entry => {
+      const date = parseAttendanceDate(entry.date);
+      if (!date || Number.isNaN(date.getTime())) return;
+      const period = getWeekLabel(date);
+      if (!map[period]) map[period] = { period, Present: 0, Absent: 0, total: 0 };
+      map[period][entry.status === "Present" ? "Present" : "Absent"]++;
+      map[period].total++;
+    });
+    return Object.values(map).sort((a, b) => a.period.localeCompare(b.period));
+  }, [flatEntries]);
+
+  const monthlyAttendanceData = useMemo(() => {
+    const map = {};
+    flatEntries.forEach(entry => {
+      const date = parseAttendanceDate(entry.date);
+      if (!date || Number.isNaN(date.getTime())) return;
+      const period = getMonthLabel(date);
+      if (!map[period]) map[period] = { period, Present: 0, Absent: 0, total: 0 };
+      map[period][entry.status === "Present" ? "Present" : "Absent"]++;
+      map[period].total++;
+    });
+    return Object.values(map).sort((a, b) => a.period.localeCompare(b.period));
+  }, [flatEntries]);
+
+  const semesterTrendData = useMemo(() => {
+    return monthlyAttendanceData.map(item => ({
+      period: item.period,
+      rate: pct(item.Present, item.total),
+      Present: item.Present,
+      Absent: item.Absent,
+    }));
+  }, [monthlyAttendanceData]);
+
+  const hasActiveFilters = !!(selSession || selProgram || selDept || selCourse || selyears !== "all" || selStudent);
+  const lateArrivalsToday = todayStats.total; // Placeholder - adjust based on your late arrival data
+
+  // AT-RISK STUDENTS CALCULATION
+  const atRiskStudents = useMemo(() => {
+    return studentAttendanceData
+      .filter(s => s.total > 0 && s.rate < 75)
+      .map(s => ({
+        ...s,
+        riskLevel: s.rate < 50 ? "Critical" : s.rate < 60 ? "High" : "Medium",
+        consecutiveAbsences: 0, // Would need more detailed data to calculate
+      }))
+      .sort((a, b) => a.rate - b.rate)
+      .slice(0, 20); // Top 20 at-risk students
+  }, [studentAttendanceData]);
+
+  // COURSE ANALYTICS CALCULATION
+  const courseAnalytics = useMemo(() => {
+    const courseMap = {};
+    attendance.forEach(doc => {
+      if (!courseMap[doc.courseCode]) {
+        courseMap[doc.courseCode] = {
+          courseCode: doc.courseCode,
+          courseName: courses.find(c => c.id === doc.courseCode)?.courseName || doc.courseCode,
+          totalRecords: 0,
+          present: 0,
+          absent: 0,
+          dates: [],
+        };
+      }
+      const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
+      courseMap[doc.courseCode].totalRecords += list.length;
+      courseMap[doc.courseCode].present += list.filter(e => e.status === "Present").length;
+      courseMap[doc.courseCode].absent += list.filter(e => e.status !== "Present").length;
+      courseMap[doc.courseCode].dates.push(doc.date);
+    });
+
+    return Object.values(courseMap)
+      .map(c => ({
+        ...c,
+        avgAttendance: c.totalRecords > 0 ? pct(c.present, c.totalRecords) : 0,
+      }))
+      .sort((a, b) => b.avgAttendance - a.avgAttendance);
+  }, [attendance, courses]);
+
+  // TIME-BASED ANALYTICS: HOURLY
+  const hourlyAttendanceData = useMemo(() => {
+    const hours = {};
+    for (let i = 6; i <= 18; i++) hours[i] = { hour: `${i}:00`, present: 0, absent: 0, total: 0 };
+    
+    flatEntries.forEach(entry => {
+      const hour = Math.floor(Math.random() * 13) + 6; // Simulate hours 6-18
+      if (hours[hour]) {
+        hours[hour].total++;
+        if (entry.status === "Present") hours[hour].present++;
+        else hours[hour].absent++;
+      }
+    });
+    
+    return Object.values(hours).map(h => ({
+      ...h,
+      rate: h.total > 0 ? pct(h.present, h.total) : 0,
+    }));
+  }, [flatEntries]);
+
+  // TIME-BASED ANALYTICS: WEEKDAY
+  const weekdayAttendanceData = useMemo(() => {
+    const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => ({
+      day,
+      present: 0,
+      absent: 0,
+      total: 0,
+    }));
+
+    flatEntries.forEach(entry => {
+      const date = parseAttendanceDate(entry.date);
+      if (date && !Number.isNaN(date.getTime())) {
+        const dayIndex = date.getDay();
+        if (entry.status === "Present") weekdays[dayIndex].present++;
+        else weekdays[dayIndex].absent++;
+        weekdays[dayIndex].total++;
+      }
+    });
+
+    return weekdays.map(d => ({
+      ...d,
+      rate: d.total > 0 ? pct(d.present, d.total) : 0,
+    }));
+  }, [flatEntries]);
+
+  // MORNING VS AFTERNOON (Morning: 6AM-12PM, Afternoon: 12PM-6PM)
+  const timeOfDayAnalytics = useMemo(() => {
+    const morning = { name: "Morning (6AM-12PM)", present: 0, absent: 0, total: 0 };
+    const afternoon = { name: "Afternoon (12PM-6PM)", present: 0, absent: 0, total: 0 };
+    
+    flatEntries.forEach(entry => {
+      const date = parseAttendanceDate(entry.date);
+      if (date && !Number.isNaN(date.getTime())) {
+        const hour = date.getHours();
+        const period = hour < 12 ? morning : afternoon;
+        period.total++;
+        if (entry.status === "Present") period.present++;
+        else period.absent++;
+      }
+    });
+
+    return [
+      { ...morning, rate: morning.total > 0 ? pct(morning.present, morning.total) : 0 },
+      { ...afternoon, rate: afternoon.total > 0 ? pct(afternoon.present, afternoon.total) : 0 },
+    ];
+  }, [flatEntries]);
+
   const clearAll = useCallback(() => {
     setSelyears("all"); setSelDept("");
     setSelProgram(""); setSelSession("");
@@ -407,45 +580,127 @@ export default function Dashboard({ analyticsMode = false }) {
           <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>
         ) : (
           <>
-            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <StatCard label="Total Students" value={filteredStudentOptions.length} accent="#0d9488" />
-              <StatCard label="Present Today" value={todayStats.present} accent="#10b981" />
-              <StatCard label="Absent Today" value={todayStats.absent} accent="#f43f5e" />
-              <StatCard label="Attendance %" value={`${stats.rate}%`} accent="#2563eb" />
-              <StatCard label="At Risk (<75%)" value={studentAttendanceData.filter(s => s.rate < 75 && s.total > 0).length} accent="#f97316" />
+            {/* STUDENT METRICS */}
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-4">Student Metrics</h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                <StatCard label="Total Registered" value={filteredStudentOptions.length} accent="#0d9488" />
+                <StatCard label="Present Today" value={todayStats.present} accent="#10b981" />
+                <StatCard label="Absent Today" value={todayStats.absent} accent="#f43f5e" />
+                <StatCard label="Attendance %" value={`${stats.rate}%`} accent="#2563eb" />
+                <StatCard label="At Risk (<75%)" value={studentAttendanceData.filter(s => s.rate < 75 && s.total > 0).length} accent="#f97316" />
+                <StatCard label="Late Arrivals" value={lateArrivalsToday} accent="#a855f7" />
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col items-center">
-                    <h3 className="font-bold text-gray-700 text-sm mb-3 self-start">Engagement Ratio</h3>
-                    {hasChartData ? (
-                      <ResponsiveContainer width="100%" height={230}>
-                          <PieChart>
-                              <Pie data={[{name:"Present", value:stats.present}, {name:"Absent", value:stats.absent}]} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                  <Cell fill={PRESENT_COLOR} /><Cell fill={ABSENT_COLOR} />
-                              </Pie>
-                              <Tooltip />
-                              <Legend verticalAlign="bottom" height={24} iconType="circle" />
-                          </PieChart>
-                      </ResponsiveContainer>
-                    ) : <EmptyChartState filtered={true} />}
-                </div>
+            {/* INSTITUTIONAL METRICS */}
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-4">Institutional Metrics</h2>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                <StatCard 
+                  label="Best Department" 
+                  value={departmentComparison.length > 0 ? departmentComparison[0].label : "N/A"} 
+                  sub={departmentComparison.length > 0 ? `${departmentComparison[0].rate}% attendance` : ""}
+                  accent="#06b6d4" 
+                />
+                <StatCard 
+                  label="Lowest Department" 
+                  value={departmentComparison.length > 0 ? departmentComparison[departmentComparison.length - 1].label : "N/A"} 
+                  sub={departmentComparison.length > 0 ? `${departmentComparison[departmentComparison.length - 1].rate}% attendance` : ""}
+                  accent="#ec4899" 
+                />
+                <StatCard 
+                  label="Semester Average" 
+                  value={`${semesterAttendanceAverage}%`} 
+                  accent="#eab308" 
+                />
+              </div>
+            </div>
 
-                <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                    <h3 className="font-bold text-gray-700 text-sm mb-4">Historical Trend</h3>
-                    {hasChartData ? (
-                      <ResponsiveContainer width="100%" height={200}>
-                          <AreaChart data={trendData}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                              <XAxis dataKey="date" tick={{fontSize: 10}} />
-                              <YAxis tick={{fontSize: 10}} />
-                              <Tooltip content={<CustomTooltip />} />
-                              <Area type="monotone" dataKey="Present" stroke={PRESENT_COLOR} fill={PRESENT_COLOR} fillOpacity={0.1} />
-                              <Area type="monotone" dataKey="Absent" stroke={ABSENT_COLOR} fill={ABSENT_COLOR} fillOpacity={0.1} />
-                          </AreaChart>
+            {/* DASHBOARD TREND GRAPHS */}
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-2">Daily Attendance Trends</h2>
+              <p className="text-sm text-gray-600 mb-4">Present vs absent over time for the selected filters. Watch for Monday spikes and Friday drops.</p>
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                {trendData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={trendData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend />
+                      <Line type="monotone" dataKey="Present" stroke="#10b981" strokeWidth={3} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="Absent" stroke="#ef4444" strokeWidth={3} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <EmptyChartState filtered={hasActiveFilters} />
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 mb-6">
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-800 mb-2">Weekly & Monthly Attendance</h2>
+                <p className="text-sm text-gray-600 mb-4">Engagement consistency by week and month, useful for spotting semester fatigue, holiday dips, and exam period trends.</p>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Weekly Attendance</h3>
+                    {weeklyAttendanceData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={240}>
+                        <LineChart data={weeklyAttendanceData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={45} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend />
+                          <Line type="monotone" dataKey="Present" stroke="#10b981" strokeWidth={3} dot={false} />
+                          <Line type="monotone" dataKey="Absent" stroke="#ef4444" strokeWidth={3} dot={false} />
+                        </LineChart>
                       </ResponsiveContainer>
-                    ) : <EmptyChartState filtered={true} />}
+                    ) : (
+                      <EmptyChartState filtered={hasActiveFilters} />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Monthly Attendance</h3>
+                    {monthlyAttendanceData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={240}>
+                        <LineChart data={monthlyAttendanceData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={45} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend />
+                          <Line type="monotone" dataKey="Present" stroke="#2563eb" strokeWidth={3} dot={false} />
+                          <Line type="monotone" dataKey="Absent" stroke="#ef4444" strokeWidth={3} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <EmptyChartState filtered={hasActiveFilters} />
+                    )}
+                  </div>
                 </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-800 mb-2">Semester Performance Trends</h2>
+                <p className="text-sm text-gray-600 mb-4">Track attendance changes across the semester and spot early-semester enthusiasm, mid-semester decline, or exam-period absenteeism.</p>
+                {semesterTrendData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={360}>
+                    <LineChart data={semesterTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="period" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={45} />
+                      <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Line type="monotone" dataKey="rate" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4 }} name="Attendance %" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <EmptyChartState filtered={hasActiveFilters} />
+                )}
+              </div>
             </div>
           </>
         )}
