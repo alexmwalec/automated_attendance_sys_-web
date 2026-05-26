@@ -190,6 +190,12 @@ export default function Dashboard({ analyticsMode = false }) {
     return [...new Set(depts)].sort();
   }, [courses]);
 
+  // Derive programs from students when there's no dedicated 'programs' collection
+  const uniqueProgramsFromStudents = useMemo(() => {
+    const p = students.map(s => s.program).filter(Boolean);
+    return [...new Set(p)].sort().map(x => ({ id: x, name: x }));
+  }, [students]);
+
   const filteredCourseOptions = useMemo(() => {
     return courses.filter(c => {
       if (selDept && c.department !== selDept) return false;
