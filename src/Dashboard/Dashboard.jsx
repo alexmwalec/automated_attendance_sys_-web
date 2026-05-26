@@ -162,7 +162,7 @@ export default function Dashboard({ analyticsMode = false }) {
 
 
   // I will start from here tomorrow
-  // Logic: Derived Filter Options
+  // Logic: Derived Filter Option
   const uniqueDepts = useMemo(() => {
     const depts = courses.map(c => c.department).filter(d => d && d !== "Unassigned");
     return [...new Set(depts)].sort();
@@ -175,13 +175,13 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, [courses, selDept]);
 
-  // Logic: Filter students list based on Course, Dept, and Year selection
+  // now lets implement the logic to filter students based on department, course and year selected
   const filteredStudentOptions = useMemo(() => {
     return students.filter(s => {
       if (selDept && s.department !== selDept) return false;
       if (selYear !== "all" && s.year !== selYear) return false;
       
-      // Filter students by course enrollment
+      // use course enrolled to filter students 
       if (selCourse) {
         const studentCourses = Array.isArray(s.enrolledCourses) 
             ? s.enrolledCourses 
@@ -195,11 +195,11 @@ export default function Dashboard({ analyticsMode = false }) {
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  // Main Data Processing
+  //then process data 
   const flatEntries = useMemo(() => {
     let filteredAttendance = attendance;
 
-    // Filter by Course first
+    //fisrt use courses to filter 
     if (selCourse) {
       filteredAttendance = filteredAttendance.filter(d => d.courseCode === selCourse);
     } else if (selDept) {
@@ -220,7 +220,7 @@ export default function Dashboard({ analyticsMode = false }) {
       });
     });
 
-    // Final filter for Student
+    //finally apply filter for student
     if (selStudent) {
       return rows.filter(r => r.regNo === selStudent);
     }
