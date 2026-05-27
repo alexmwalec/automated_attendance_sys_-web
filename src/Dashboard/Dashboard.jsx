@@ -9,9 +9,9 @@ import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "../firebase";
 import Sidebar from "../components/sidebar";
 
-// Pallette
-const PRESENT_COLOR = "#10b981";  
-const ABSENT_COLOR  = "#ef4444";  
+//Semantic color palette
+const PRESENT_COLOR = "#10b981";
+const ABSENT_COLOR  = "#ef4444";   
 
 // Helper functions
 function pct(a, total) {
@@ -62,7 +62,7 @@ const CustomTooltip = ({ active, payload, label }) => {
     <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-sm">
       <p className="font-semibold text-gray-700 mb-1">{label}</p>
       {payload.map((p) => (
-        <p key={p.name} style={{ color: p.fill }} className="flex justify-between gap-4">
+        <p key={p.name} style={{ color: p.fill || p.stroke }} className="flex justify-between gap-4">
           <span>{p.name}</span>
           <span className="font-bold">{p.value} ({pct(p.value, total)}%)</span>
         </p>
@@ -148,10 +148,8 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, []);
 
-  // 3. Fetch Sessions (Session Types like Class, Lab, Exam)
+  // 3. Fetch Sessions
   useEffect(() => {
-    // We try to fetch from a dedicated "sessions" collection
-    // If you don't have it yet, you can also derive these from attendance records
     return onSnapshot(collection(db, "sessions"), (snap) => {
         if (!snap.empty) {
             setSessions(snap.docs.map(d => ({
@@ -159,7 +157,6 @@ export default function Dashboard({ analyticsMode = false }) {
                 name: d.data().name || d.id,
             })));
         } else {
-            // Fallback: Default session types if collection is empty
             setSessions([
                 { id: "Class", name: "Class" },
                 { id: "Lab", name: "Lab" },
@@ -178,7 +175,6 @@ export default function Dashboard({ analyticsMode = false }) {
           name: d.data().name || d.id,
         })));
       } else {
-        // Fallback: If no "programs" collection, derive from students data
         const uniqueProgs = [...new Set(students.map(s => s.program).filter(Boolean))];
         setPrograms(uniqueProgs.map(p => ({ id: p, name: p })));
       }
@@ -212,7 +208,6 @@ export default function Dashboard({ analyticsMode = false }) {
       if (selDept && s.department !== selDept) return false;
       if (selProgram && s.program !== selProgram) return false;
       if (selyears !== "all" && s.years !== selyears) return false;
-      
       if (selCourse) {
         const studentCourses = normalizeCourseList(s.enrolledCourses);
         if (!studentCourses.includes(selCourse)) return false;
@@ -242,7 +237,6 @@ export default function Dashboard({ analyticsMode = false }) {
     filteredAttendance.forEach(doc => {
       const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
       list.forEach(entry => {
-        // Find student details to filter by program or years
         const sInfo = students.find(s => s.regNo === entry.regNo);
         
         if (selProgram && sInfo?.program !== selProgram) return;
@@ -293,7 +287,7 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, [attendance, studentInfoByReg]);
 
-  // Analytics Calculations (derived for StatCards)
+  // Analytics Calculations
   const stats = useMemo(() => {
     const total = flatEntries.length;
     const present = flatEntries.filter(e => e.status === "Present").length;
@@ -307,7 +301,6 @@ export default function Dashboard({ analyticsMode = false }) {
     return { total, present, absent: total - present, rate: pct(present, total) };
   }, [flatEntries, todayStr]);
 
-  // Build group metrics for faculty and department comparisons
   const buildGroupMetrics = (field) => {
     const groups = {};
     studentAttendanceData.forEach(student => {
@@ -369,22 +362,20 @@ export default function Dashboard({ analyticsMode = false }) {
   }, [monthlyAttendanceData]);
 
   const hasActiveFilters = !!(selSession || selProgram || selDept || selCourse || selyears !== "all" || selStudent);
-  const lateArrivalsToday = todayStats.total; // Placeholder - adjust based on your late arrival data
+  const lateArrivalsToday = todayStats.total;
 
-  // AT-RISK STUDENTS CALCULATION
   const atRiskStudents = useMemo(() => {
     return studentAttendanceData
       .filter(s => s.total > 0 && s.rate < 75)
       .map(s => ({
         ...s,
         riskLevel: s.rate < 50 ? "Critical" : s.rate < 60 ? "High" : "Medium",
-        consecutiveAbsences: 0, // Would need more detailed data to calculate
+        consecutiveAbsences: 0,
       }))
       .sort((a, b) => a.rate - b.rate)
-      .slice(0, 20); // Top 20 at-risk students
+      .slice(0, 20);
   }, [studentAttendanceData]);
 
-  // COURSE ANALYTICS CALCULATION
   const courseAnalytics = useMemo(() => {
     const courseMap = {};
     attendance.forEach(doc => {
@@ -413,27 +404,6 @@ export default function Dashboard({ analyticsMode = false }) {
       .sort((a, b) => b.avgAttendance - a.avgAttendance);
   }, [attendance, courses]);
 
-  // TIME-BASED ANALYTICS: HOURLY
-  const hourlyAttendanceData = useMemo(() => {
-    const hours = {};
-    for (let i = 6; i <= 18; i++) hours[i] = { hour: `${i}:00`, present: 0, absent: 0, total: 0 };
-    
-    flatEntries.forEach(entry => {
-      const hour = Math.floor(Math.random() * 13) + 6; // Simulate hours 6-18
-      if (hours[hour]) {
-        hours[hour].total++;
-        if (entry.status === "Present") hours[hour].present++;
-        else hours[hour].absent++;
-      }
-    });
-    
-    return Object.values(hours).map(h => ({
-      ...h,
-      rate: h.total > 0 ? pct(h.present, h.total) : 0,
-    }));
-  }, [flatEntries]);
-
-  // TIME-BASED ANALYTICS: WEEKDAY
   const weekdayAttendanceData = useMemo(() => {
     const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => ({
       day,
@@ -456,28 +426,6 @@ export default function Dashboard({ analyticsMode = false }) {
       ...d,
       rate: d.total > 0 ? pct(d.present, d.total) : 0,
     }));
-  }, [flatEntries]);
-
-  // MORNING VS AFTERNOON (Morning: 6AM-12PM, Afternoon: 12PM-6PM)
-  const timeOfDayAnalytics = useMemo(() => {
-    const morning = { name: "Morning (6AM-12PM)", present: 0, absent: 0, total: 0 };
-    const afternoon = { name: "Afternoon (12PM-6PM)", present: 0, absent: 0, total: 0 };
-    
-    flatEntries.forEach(entry => {
-      const date = parseAttendanceDate(entry.date);
-      if (date && !Number.isNaN(date.getTime())) {
-        const hour = date.getHours();
-        const period = hour < 12 ? morning : afternoon;
-        period.total++;
-        if (entry.status === "Present") period.present++;
-        else period.absent++;
-      }
-    });
-
-    return [
-      { ...morning, rate: morning.total > 0 ? pct(morning.present, morning.total) : 0 },
-      { ...afternoon, rate: afternoon.total > 0 ? pct(afternoon.present, afternoon.total) : 0 },
-    ];
   }, [flatEntries]);
 
   const clearAll = useCallback(() => {
@@ -530,7 +478,6 @@ export default function Dashboard({ analyticsMode = false }) {
                   {sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Program</label>
                 <select value={selProgram} onChange={e => setSelProgram(e.target.value)} className={selectClass}>
@@ -538,7 +485,6 @@ export default function Dashboard({ analyticsMode = false }) {
                   {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Department</label>
                 <select value={selDept} onChange={e => setSelDept(e.target.value)} className={selectClass}>
@@ -546,7 +492,6 @@ export default function Dashboard({ analyticsMode = false }) {
                   {uniqueDepts.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Course</label>
                 <select value={selCourse} onChange={e => setSelCourse(e.target.value)} className={selectClass}>
@@ -554,7 +499,6 @@ export default function Dashboard({ analyticsMode = false }) {
                   {filteredCourseOptions.map(c => <option key={c.id} value={c.id}>{c.courseName}</option>)}
                 </select>
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">years</label>
                 <select value={selyears} onChange={e => setSelyears(e.target.value)} className={selectClass}>
@@ -562,7 +506,6 @@ export default function Dashboard({ analyticsMode = false }) {
                   {["1","2","3","4","5"].map(y => <option key={y} value={y}>years {y}</option>)}
                 </select>
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Student</label>
                 <select value={selStudent} onChange={e => setSelStudent(e.target.value)} className={selectClass}>
@@ -580,16 +523,19 @@ export default function Dashboard({ analyticsMode = false }) {
           <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>
         ) : (
           <>
-            {/* STUDENT METRICS */}
+            {/* STUDENT METRICS    
+            */}
             <div className="mb-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4">Student Metrics</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
-                <StatCard label="Total Registered" value={filteredStudentOptions.length} accent="#0d9488" />
-                <StatCard label="Present Today" value={todayStats.present} accent="#10b981" />
-                <StatCard label="Absent Today" value={todayStats.absent} accent="#f43f5e" />
-                <StatCard label="Attendance %" value={`${stats.rate}%`} accent="#2563eb" />
-                <StatCard label="At Risk (<75%)" value={studentAttendanceData.filter(s => s.rate < 75 && s.total > 0).length} accent="#f97316" />
-                <StatCard label="Late Arrivals" value={lateArrivalsToday} accent="#a855f7" />
+                {/*Green cards first*/}
+                <StatCard label="Total Registered"  value={filteredStudentOptions.length}                                         accent={PRESENT_COLOR} />
+                <StatCard label="Present Today"      value={todayStats.present}                                                   accent={PRESENT_COLOR} />
+                <StatCard label="Attendance %"       value={`${stats.rate}%`}                                                     accent={PRESENT_COLOR} />
+                {/*Red cards grouped*/}
+                <StatCard label="Absent Today"       value={todayStats.absent}                                                    accent={ABSENT_COLOR}  />
+                <StatCard label="At Risk (<75%)"     value={studentAttendanceData.filter(s => s.rate < 75 && s.total > 0).length} accent={ABSENT_COLOR}  />
+                <StatCard label="Late Arrivals"      value={lateArrivalsToday}                                                    accent={ABSENT_COLOR}  />
               </div>
             </div>
 
@@ -597,27 +543,29 @@ export default function Dashboard({ analyticsMode = false }) {
             <div className="mb-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4">Institutional Metrics</h2>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-                <StatCard 
-                  label="Best Department" 
-                  value={departmentComparison.length > 0 ? departmentComparison[0].label : "N/A"} 
+                {/*Green cards first*/}
+                <StatCard
+                  label="Best Department"
+                  value={departmentComparison.length > 0 ? departmentComparison[0].label : "N/A"}
                   sub={departmentComparison.length > 0 ? `${departmentComparison[0].rate}% attendance` : ""}
-                  accent="#06b6d4" 
+                  accent={PRESENT_COLOR}
                 />
-                <StatCard 
-                  label="Lowest Department" 
-                  value={departmentComparison.length > 0 ? departmentComparison[departmentComparison.length - 1].label : "N/A"} 
+                <StatCard
+                  label="Semester Average"
+                  value={`${semesterAttendanceAverage}%`}
+                  accent={PRESENT_COLOR}
+                />
+                {/*Red card last*/}
+                <StatCard
+                  label="Lowest Department"
+                  value={departmentComparison.length > 0 ? departmentComparison[departmentComparison.length - 1].label : "N/A"}
                   sub={departmentComparison.length > 0 ? `${departmentComparison[departmentComparison.length - 1].rate}% attendance` : ""}
-                  accent="#ec4899" 
-                />
-                <StatCard 
-                  label="Semester Average" 
-                  value={`${semesterAttendanceAverage}%`} 
-                  accent="#eab308" 
+                  accent={ABSENT_COLOR}
                 />
               </div>
             </div>
 
-            {/* DASHBOARD TREND GRAPHS */}
+            {/* DAILY TREND CHART */}
             <div className="mb-6">
               <h2 className="text-lg font-bold text-gray-800 mb-2">Daily Attendance Trends</h2>
               <p className="text-sm text-gray-600 mb-4">Present vs absent over time for the selected filters. Watch for Monday spikes and Friday drops.</p>
@@ -630,8 +578,8 @@ export default function Dashboard({ analyticsMode = false }) {
                       <YAxis tick={{ fontSize: 11 }} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend />
-                      <Line type="monotone" dataKey="Present" stroke="#10b981" strokeWidth={3} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="Absent" stroke="#ef4444" strokeWidth={3} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="Present" stroke={PRESENT_COLOR} strokeWidth={3} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="Absent"  stroke={ABSENT_COLOR}  strokeWidth={3} dot={{ r: 3 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
@@ -641,6 +589,7 @@ export default function Dashboard({ analyticsMode = false }) {
             </div>
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 mb-6">
+              {/* WEEKLY & MONTHLY */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold text-gray-800 mb-2">Weekly & Monthly Attendance</h2>
                 <p className="text-sm text-gray-600 mb-4">Engagement consistency by week and month, useful for spotting semester fatigue, holiday dips, and exam period trends.</p>
@@ -655,8 +604,8 @@ export default function Dashboard({ analyticsMode = false }) {
                           <YAxis tick={{ fontSize: 10 }} />
                           <Tooltip content={<CustomTooltip />} />
                           <Legend />
-                          <Line type="monotone" dataKey="Present" stroke="#10b981" strokeWidth={3} dot={false} />
-                          <Line type="monotone" dataKey="Absent" stroke="#ef4444" strokeWidth={3} dot={false} />
+                          <Line type="monotone" dataKey="Present" stroke={PRESENT_COLOR} strokeWidth={3} dot={false} />
+                          <Line type="monotone" dataKey="Absent"  stroke={ABSENT_COLOR}  strokeWidth={3} dot={false} />
                         </LineChart>
                       </ResponsiveContainer>
                     ) : (
@@ -673,8 +622,8 @@ export default function Dashboard({ analyticsMode = false }) {
                           <YAxis tick={{ fontSize: 10 }} />
                           <Tooltip content={<CustomTooltip />} />
                           <Legend />
-                          <Line type="monotone" dataKey="Present" stroke="#2563eb" strokeWidth={3} dot={false} />
-                          <Line type="monotone" dataKey="Absent" stroke="#ef4444" strokeWidth={3} dot={false} />
+                          <Line type="monotone" dataKey="Present" stroke={PRESENT_COLOR} strokeWidth={3} dot={false} />
+                          <Line type="monotone" dataKey="Absent"  stroke={ABSENT_COLOR}  strokeWidth={3} dot={false} />
                         </LineChart>
                       </ResponsiveContainer>
                     ) : (
@@ -684,6 +633,7 @@ export default function Dashboard({ analyticsMode = false }) {
                 </div>
               </div>
 
+              {/* SEMESTER TREND */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold text-gray-800 mb-2">Semester Performance Trends</h2>
                 <p className="text-sm text-gray-600 mb-4">Track attendance changes across the semester and spot early-semester enthusiasm, mid-semester decline, or exam-period absenteeism.</p>
@@ -694,7 +644,7 @@ export default function Dashboard({ analyticsMode = false }) {
                       <XAxis dataKey="period" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={45} />
                       <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Line type="monotone" dataKey="rate" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4 }} name="Attendance %" />
+                      <Line type="monotone" dataKey="rate" stroke={PRESENT_COLOR} strokeWidth={3} dot={{ r: 4 }} name="Attendance %" />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
