@@ -229,7 +229,7 @@ function Profile() {
           )}
         </div>
 
-        {/* Form */}
+        {/* F
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6">
           <h2 className="text-xl font-normal text-teal-700 mb-4">
             {editingIndex !== null ? "Edit User" : "Create User Profile"}
@@ -259,7 +259,7 @@ function Profile() {
               />
             </div>
 
-            {/* Surname */}
+            {/* Surname *
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Surname</label>
               <input
@@ -272,7 +272,7 @@ function Profile() {
               />
             </div>
 
-            {/* Email */}
+            {/* Email 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
@@ -298,7 +298,7 @@ function Profile() {
               )}
             </div>
 
-            {/* Department */}
+            {/* Department 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
               <select
@@ -315,7 +315,7 @@ function Profile() {
               </select>
             </div>
 
-            {/* Role */}
+            {/* Role 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
               <select
@@ -354,7 +354,7 @@ function Profile() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table *
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <h2 className="text-xl font-semibold text-teal-700 mb-4">Profiles</h2>
           <div className="overflow-x-auto">
@@ -411,7 +411,7 @@ function Profile() {
         </div>
       </main>
 
-      {/* Toast */}
+      {/* Toast *
       {toast && (
         <div className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-4 rounded-xl bg-teal-700 px-4 py-3 text-white shadow-xl animate-fade-in-up sm:bottom-6 sm:w-auto sm:px-5">
           {toast.type === "success" ? (
