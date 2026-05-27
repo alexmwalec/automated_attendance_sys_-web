@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+/*import { useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import Sidebar from "../components/sidebar";
 import { db } from "../../firebase";
@@ -211,7 +211,7 @@ function Profile() {
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
-        {/* Header */}
+        {/* Header }
         <div className="relative mb-4 flex items-center justify-between rounded-lg bg-teal-500 px-4 py-3 text-white">
           <span>Profile</span>
           <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 hover:bg-teal-400">
@@ -462,4 +462,4 @@ function Profile() {
   );
 }
 
-export default Profile;
+export default Profile;*/

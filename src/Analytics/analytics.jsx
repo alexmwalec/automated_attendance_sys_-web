@@ -343,10 +343,10 @@ export default function Analytics() {
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Course</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Total Records</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Present</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Absent</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Avg Attendance</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Total Attendance Records</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Present Students</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Absent Students</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Attendance Percentage</th>
                     </tr>
                   </thead>
                   <tbody>
