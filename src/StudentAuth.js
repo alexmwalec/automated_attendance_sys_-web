@@ -1,75 +1,83 @@
 import React, { useState } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
-export default function StudentAuth() {
-  const [regNo, setRegNo] = useState("");
+export default function StudentLogin() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleVerify = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
+    setError("");
 
     try {
-      // Look for the student document where the ID (Document ID) matches the Reg No
-      const q = query(collection(db, "students"));
-      const querySnapshot = await getDocs(q);
-      
-      // Check if any document ID matches the entered Reg No
-      const studentExists = querySnapshot.docs.find(
-        (doc) => doc.id.trim().toUpperCase() === regNo.trim().toUpperCase()
-      );
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-      if (studentExists) {
-        // Save to localStorage so the dashboard knows who is logged in
-        localStorage.setItem("studentRegNo", regNo.trim().toUpperCase());
-        navigate("/student-dashboard");
+      // Verify Student Role in Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      
+      if (userDoc.exists() && userDoc.data().role === "student") {
+        // Store RegNo locally for easy access in the dashboard
+        localStorage.setItem("studentRegNo", userDoc.data().regNo);
+        navigate("/student-dashboard"); 
       } else {
-        setError("Registration Number not found in our system.");
+        await signOut(auth);
+        setError("Access Denied: You do not have student privileges.");
       }
     } catch (err) {
-      setError("System error. Please try again later.");
+      setError("Invalid credentials. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl border border-teal-100">
+    <div className="flex h-screen items-center justify-center bg-teal-50">
+      <form onSubmit={handleLogin} className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl border border-teal-100">
         <div className="text-center mb-8">
-            <h1 className="text-3xl font-black text-teal-600">Student Access</h1>
-            <p className="text-slate-500 text-sm mt-2">Enter your Reg No to view attendance</p>
+            <h2 className="text-3xl font-black text-teal-600">Student Portal</h2>
+            <p className="text-gray-500 text-sm mt-2">Sign in to view your attendance</p>
         </div>
 
         {error && <p className="mb-4 text-sm text-red-500 bg-red-50 p-3 rounded-xl border border-red-100">{error}</p>}
+        
+        <div className="mb-4">
+          <label className="block text-xs font-bold text-gray-400 uppercase ml-1 mb-1">Email Address</label>
+          <input 
+            type="email" 
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 outline-none focus:border-teal-500 transition-all" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            required 
+          />
+        </div>
+        
+        <div className="mb-6">
+          <label className="block text-xs font-bold text-gray-400 uppercase ml-1 mb-1">Password</label>
+          <input 
+            type="password" 
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 outline-none focus:border-teal-500 transition-all" 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)} 
+            required 
+          />
+        </div>
 
-        <form onSubmit={handleVerify}>
-          <div className="mb-6">
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 ml-1">Registration Number</label>
-            <input 
-              type="text" 
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-teal-500 focus:bg-white transition-all uppercase"
-              placeholder="e.g. S20/12345"
-              value={regNo}
-              onChange={(e) => setRegNo(e.target.value)}
-              required
-            />
-          </div>
-
-          <button 
+        <button 
             type="submit" 
             disabled={loading}
-            className="w-full rounded-xl bg-teal-500 py-4 font-bold text-white shadow-lg shadow-teal-200 hover:bg-teal-600 transition-all active:scale-95"
-          >
-            {loading ? "Verifying..." : "View My Attendance"}
-          </button>
-        </form>
-      </div>
+            className="w-full rounded-xl bg-teal-500 py-4 font-bold text-white hover:bg-teal-600 transition-all shadow-lg shadow-teal-100"
+        >
+          {loading ? "Verifying..." : "Sign In"}
+        </button>
+      </form>
     </div>
   );
 }
