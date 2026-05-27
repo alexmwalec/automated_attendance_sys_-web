@@ -96,7 +96,7 @@ export default function Login() {
             <input 
               type="email" 
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-teal-500 focus:bg-white transition-all" 
-              placeholder="name@university.edu"
+              placeholder="kings2005@aas.com"
               value={email} 
               onChange={(e) => setEmail(e.target.value)} 
               required 
