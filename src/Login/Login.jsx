@@ -142,10 +142,6 @@ export default function Login() {
             )}
           </button>
         </form>
-
-        <p className="text-slate-400 text-xs mt-6">
-          Authorized personnel only. Contact Admin for access.
-        </p>
       </div>
     </div>
   );
