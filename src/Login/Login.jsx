@@ -4,7 +4,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
-export default function AdminLogin() {
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -16,6 +16,7 @@ export default function AdminLogin() {
     setError("");
     setLoading(true);
 
+    // 1. Hardcoded Lecturer Check (as per your original requirement)
     if (email.trim().toLowerCase() === "alexmwalec03@gmail.com" && password === "12345678") {
       navigate("/lecturer-sessions");
       setLoading(false);
@@ -23,25 +24,32 @@ export default function AdminLogin() {
     }
 
     try {
-      // 1. Attempt Firebase Authentication
+      // 2. Firebase Authentication
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 2. Fetch User Document from Firestore to check role
+      // 3. Fetch User Role from Firestore
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        
-        // 3. Verify if the role is 'admin'
-        if (userData.role === "admin") {
-          console.log("Admin verified. Access granted.");
-          navigate("/dashboard"); 
-        } else {
-          // If role is NOT admin, force sign out and show error
+        const role = userData.role;
+
+        if (role === "admin") {
+          navigate("/dashboard");
+        } 
+        else if (role === "student") {
+          // Store RegNo for the student dashboard
+          localStorage.setItem("studentRegNo", userData.regNo || "");
+          navigate("/student-dashboard");
+        } 
+        else if (role === "lecturer") {
+          navigate("/lecturer-sessions");
+        } 
+        else {
           await signOut(auth);
-          setError("Access Denied: You do not have administrator privileges.");
+          setError("Access Denied: Unrecognized user role.");
         }
       } else {
         await signOut(auth);
@@ -49,13 +57,10 @@ export default function AdminLogin() {
       }
     } catch (err) {
       console.error("Login error:", err);
-      // Friendly error messages based on Firebase codes
-      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
+      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
         setError("Invalid email or password.");
-      } else if (err.code === "auth/invalid-credential") {
-        setError("Invalid credentials. Please try again.");
       } else {
-        setError("An error occurred during sign-in. Please try again.");
+        setError("An error occurred. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -65,18 +70,18 @@ export default function AdminLogin() {
   return (
     <div className="flex h-screen items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md">
-        {/* Logo / Title Section */}
+        {/* Branding Section */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-100 rounded-full mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-500 rounded-full mb-4 shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
           </div>
-          <h1 className="text-3xl font-black text-gray-800">AAS Admin</h1>
-          <p className="text-gray-500 text-sm mt-2">Automated Attendance System Management</p>
+          <h1 className="text-3xl font-black text-gray-800">AAS Portal</h1>
+          <p className="text-gray-500 text-sm mt-2">Automated Attendance System</p>
         </div>
 
-        <form onSubmit={handleLogin} className="rounded-2xl bg-white p-8 shadow-xl border border-gray-100">          
+        <form onSubmit={handleLogin} className="rounded-3xl bg-white p-8 shadow-2xl border border-gray-100">          
           {error && (
             <div className="mb-6 flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-100">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -91,7 +96,7 @@ export default function AdminLogin() {
             <input 
               type="email" 
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-teal-500 focus:bg-white transition-all" 
-              placeholder=""
+              placeholder="name@university.edu"
               value={email} 
               onChange={(e) => setEmail(e.target.value)} 
               required 
@@ -103,7 +108,7 @@ export default function AdminLogin() {
             <input 
               type="password" 
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-teal-500 focus:bg-white transition-all" 
-              placeholder=""
+              placeholder="••••••••"
               value={password} 
               onChange={(e) => setPassword(e.target.value)} 
               required 
@@ -121,6 +126,10 @@ export default function AdminLogin() {
             ) : "Sign In"}
           </button>
         </form>
+        
+        <p className="text-center text-gray-400 text-xs mt-8">
+          Authorized personnel only. Contact Admin for access.
+        </p>
       </div>
     </div>
   );
