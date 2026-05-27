@@ -271,8 +271,8 @@ export default function Analytics() {
           <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>
         ) : (
           <>
-            <h2 className="text-lg font-bold text-gray-800 mb-4 mt-6">Time-Based Attendance Intelligence</h2>
-            <p className="text-sm text-gray-600 mb-4">Analyzing attendance patterns by hour, weekday, and time of day.</p>
+            <h2 className="text-lg font-bold text-gray-800 mb-4 mt-6">Time-Based Attendance Analysis</h2>
+            <p className="text-sm text-gray-600 mb-4">Analyzing attendance by hour, weekday, and time of day.</p>
 
             <div className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
               <h3 className="font-bold text-gray-700 text-sm mb-2">Attendance by Hour</h3>
@@ -303,7 +303,7 @@ export default function Analytics() {
                       <XAxis dataKey="day" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Line type="monotone" dataKey="rate" stroke="#06b6d4" strokeWidth={3} dot={{ r: 4 }} name="Attendance %" />
+                      <Line type="monotone" dataKey="rate" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} name="Attendance %" />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
@@ -320,7 +320,7 @@ export default function Analytics() {
                       <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-15} textAnchor="end" height={60} />
                       <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="rate" fill="#8b5cf6" name="Attendance %" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="rate" fill="#10b981" name="Attendance %" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -401,7 +401,7 @@ export default function Analytics() {
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-700 text-sm mb-4">Comparative Performance</h3>
+                <h3 className="font-bold text-gray-700 text-sm mb-4">Comparating Department Performances</h3>
                 {departmentComparison.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart data={departmentComparison.slice(0, 8).map(d => ({ name: d.label.substring(0, 12), rate: d.rate }))}>
@@ -409,7 +409,7 @@ export default function Analytics() {
                       <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} />
                       <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="rate" fill="#06b6d4" name="Attendance %" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="rate" fill="#10b981" name="Attendance %" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -424,14 +424,14 @@ export default function Analytics() {
               {atRiskStudents.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+                    <thead className="bg-teal-500 border-b border-gray-200">
                       <tr>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Student</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Registration Number</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Program</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Year</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Attendance %</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Risk Level</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Student Name</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Registration Number</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Program</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Year</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Attendance Percentage</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Risk Level</th>
                       </tr>
                     </thead>
                     <tbody>
