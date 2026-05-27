@@ -455,7 +455,11 @@ export default function Dashboard({ analyticsMode = false }) {
                   sub={institutionalComparison.length > 0 ? "Highest Attendance" : ""}
                   accent={PRESENT_COLOR}
                 />
-              
+                <StatCard
+                  label="Segment Average"
+                  value={stats.rate}
+                  accent={PRESENT_COLOR}
+                />
                 <StatCard
                   label="Lowest Segment"
                   value={institutionalComparison.length > 1 ? institutionalComparison[institutionalComparison.length - 1].label : "N/A"}
