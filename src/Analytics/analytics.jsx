@@ -9,7 +9,7 @@ import { db } from "../firebase";
 import Sidebar from "../components/sidebar";
 
 const PRESENT_COLOR = "#10b981";
-const ABSENT_COLOR = "#ef4444";
+const ABSENT_COLOR = "#1306069d";
 
 function pct(a, total) {
   return total === 0 ? 0 : Math.round((a / total) * 100);
@@ -254,7 +254,6 @@ export default function Analytics() {
         <div className="relative mb-5 flex flex-col gap-3 rounded-2xl bg-teal-500 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 shadow-md">
           <div>
             <h1 className="text-white text-lg tracking-tight font-bold">Advanced Analytics</h1>
-            <p className="text-teal-100 text-xs">Deep dive into attendance patterns and institutional metrics</p>
           </div>
           <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 text-white hover:bg-teal-400">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
@@ -272,12 +271,11 @@ export default function Analytics() {
           <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>
         ) : (
           <>
-            <h2 className="text-lg font-bold text-gray-800 mb-4 mt-6">Time-Based Attendance Intelligence</h2>
-            <p className="text-sm text-gray-600 mb-4">Analyze attendance patterns by hour, weekday, and time of day.</p>
+            <h2 className="text-lg font-bold text-gray-800 mb-4 mt-6">Time-Based Attendance Analysis</h2>
+            <p className="text-sm text-gray-600 mb-4">Analyzing attendance by hour, weekday, and time of day.</p>
 
             <div className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
               <h3 className="font-bold text-gray-700 text-sm mb-2">Attendance by Hour</h3>
-              <p className="text-xs text-gray-500 mb-4">Identify peak and low attendance hours (e.g., 7 AM classes poorly attended).</p>
               {hasChartData ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={hourlyAttendanceData}>
@@ -298,7 +296,6 @@ export default function Analytics() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <h3 className="font-bold text-gray-700 text-sm mb-2">Attendance by Weekday</h3>
-                <p className="text-xs text-gray-500 mb-4">Friday afternoon attendance drops visible in weekday patterns.</p>
                 {weekdayAttendanceData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={weekdayAttendanceData}>
@@ -306,7 +303,7 @@ export default function Analytics() {
                       <XAxis dataKey="day" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Line type="monotone" dataKey="rate" stroke="#06b6d4" strokeWidth={3} dot={{ r: 4 }} name="Attendance %" />
+                      <Line type="monotone" dataKey="rate" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} name="Attendance %" />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
@@ -316,7 +313,6 @@ export default function Analytics() {
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <h3 className="font-bold text-gray-700 text-sm mb-2">Morning vs Afternoon Attendance</h3>
-                <p className="text-xs text-gray-500 mb-4">Compare attendance rates between morning and afternoon sessions.</p>
                 {timeOfDayAnalytics.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <BarChart data={timeOfDayAnalytics}>
@@ -324,7 +320,7 @@ export default function Analytics() {
                       <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-15} textAnchor="end" height={60} />
                       <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="rate" fill="#8b5cf6" name="Attendance %" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="rate" fill="#10b981" name="Attendance %" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -376,8 +372,7 @@ export default function Analytics() {
               </div>
             </div>
 
-            <h2 className="text-lg font-bold text-gray-800 mb-2 mt-8">Department Performance</h2>
-            <p className="text-sm text-gray-600 mb-4">Critical for university management - compare attendance across departments.</p>
+            <h2 className="text-lg font-bold text-gray-800 mb-2 mt-8">Department Performance Analysis</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <h3 className="font-bold text-gray-700 text-sm mb-4">Department Leaderboard</h3>
@@ -406,7 +401,7 @@ export default function Analytics() {
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-700 text-sm mb-4">Comparative Performance</h3>
+                <h3 className="font-bold text-gray-700 text-sm mb-4">Comparating Department Performances</h3>
                 {departmentComparison.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart data={departmentComparison.slice(0, 8).map(d => ({ name: d.label.substring(0, 12), rate: d.rate }))}>
@@ -414,7 +409,7 @@ export default function Analytics() {
                       <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} />
                       <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="rate" fill="#06b6d4" name="Attendance %" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="rate" fill="#10b981" name="Attendance %" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -424,19 +419,19 @@ export default function Analytics() {
             </div>
 
             <h2 className="text-lg font-bold text-gray-800 mb-2 mt-8">At-Risk Students</h2>
-            <p className="text-sm text-gray-600 mb-4">Students below 75% attendance threshold with risk assessment.</p>
+            <p className="text-sm text-gray-600 mb-4">Students with attendance of less than 75%.</p>
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
               {atRiskStudents.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+                    <thead className="bg-teal-500 border-b border-gray-200">
                       <tr>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Student</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Reg #</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Program</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Year</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Attendance %</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Risk Level</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Student Name</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Registration Number</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Program</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Year</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Attendance Percentage</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Risk Level</th>
                       </tr>
                     </thead>
                     <tbody>

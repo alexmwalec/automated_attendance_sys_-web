@@ -11,7 +11,7 @@ import Sidebar from "../components/sidebar";
 
 //Semantic color palette
 const PRESENT_COLOR = "#10b981";
-const ABSENT_COLOR  = "#ef4444";   
+const ABSENT_COLOR  = "#1306069d";   
 
 // Helper functions
 function pct(a, total) {
@@ -454,7 +454,7 @@ export default function Dashboard({ analyticsMode = false }) {
         <div className="relative mb-5 flex flex-col gap-3 rounded-2xl bg-teal-500 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 shadow-md">
           <div>
             <h1 className="text-white text-lg tracking-tight font-bold">Attendance Insights</h1>
-            <p className="text-teal-100 text-xs">Monitoring {courses.length} courses and {students.length} students</p>
+            <p className="text-teal-100 text-sm">Monitoring {courses.length} courses and {students.length} students</p>
           </div>
           <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 text-white hover:bg-teal-400">
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
@@ -567,7 +567,6 @@ export default function Dashboard({ analyticsMode = false }) {
             {/* DAILY TREND CHART */}
             <div className="mb-6">
               <h2 className="text-lg font-bold text-gray-800 mb-2">Daily Attendance Trends</h2>
-              <p className="text-sm text-gray-600 mb-4">Present vs absent over time for the selected filters. Watch for Monday spikes and Friday drops.</p>
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 {trendData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
@@ -590,8 +589,7 @@ export default function Dashboard({ analyticsMode = false }) {
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 mb-6">
               {/* WEEKLY & MONTHLY */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-800 mb-2">Weekly & Monthly Attendance</h2>
-                <p className="text-sm text-gray-600 mb-4">Engagement consistency by week and month, useful for spotting semester fatigue, holiday dips, and exam period trends.</p>
+                <h2 className="text-lg font-bold text-gray-800 mb-2">Weekly and Monthly Attendance</h2>
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">Weekly Attendance</h3>
@@ -635,7 +633,6 @@ export default function Dashboard({ analyticsMode = false }) {
               {/* SEMESTER TREND */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold text-gray-800 mb-2">Semester Performance Trends</h2>
-                <p className="text-sm text-gray-600 mb-4">Track attendance changes across the semester and spot early-semester enthusiasm, mid-semester decline, or exam-period absenteeism.</p>
                 {semesterTrendData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={360}>
                     <LineChart data={semesterTrendData}>

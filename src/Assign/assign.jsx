@@ -514,7 +514,7 @@ function AssignInvigilator() {
 
           {/* History */}
           <div className="mt-8">
-            <h3 className="text-lg font-semibold text-teal-700 mb-4 border-b pb-2">Assignments History</h3>
+            <h3 className="text-lg font-medium text-teal-700 mb-4 border-b pb-2">Assignments History</h3>
             {loadingAssignments ? (
               <p className="text-gray-400 text-sm">Loading tasks...</p>
             ) : assignedInvigilators.length > 0 ? (
