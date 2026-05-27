@@ -9,7 +9,7 @@ import { db } from "../firebase";
 import Sidebar from "../components/sidebar";
 
 const PRESENT_COLOR = "#10b981";
-const ABSENT_COLOR = "#ef4444";
+const ABSENT_COLOR = "#1306069d";
 
 function pct(a, total) {
   return total === 0 ? 0 : Math.round((a / total) * 100);

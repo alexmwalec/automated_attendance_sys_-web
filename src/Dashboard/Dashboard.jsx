@@ -11,7 +11,7 @@ import Sidebar from "../components/sidebar";
 
 //Semantic color palette
 const PRESENT_COLOR = "#10b981";
-const ABSENT_COLOR  = "#ef4444";   
+const ABSENT_COLOR  = "#1306069d";   
 
 // Helper functions
 function pct(a, total) {
