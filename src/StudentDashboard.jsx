@@ -63,8 +63,8 @@ export default function StudentDashboard() {
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 text-lg border border-gray-300 bg-teal-500 text-bold font-bold text-gray-600 uppercase">Course</th>
-                <th className="px-6 py-4 text-lg border border-gray-300 bg-teal-500 text-bold font-bold text-gray-600 uppercase">Date</th>
                 <th className="px-6 py-4 text-lg border border-gray-300 bg-teal-500 text-bold font-bold text-gray-600 uppercase">Type</th>
+                <th className="px-6 py-4 text-lg border border-gray-300 bg-teal-500 text-bold font-bold text-gray-600 uppercase">Date</th>
                 <th className="px-6 py-4 text-lg border border-gray-300 bg-teal-500 text-bold font-bold text-gray-600 uppercase">Status</th>
               </tr>
             </thead>
@@ -73,8 +73,8 @@ export default function StudentDashboard() {
                 myAttendance.map((item) => (
                   <tr key={item.id} className="hover:bg-teal-50/30 transition-colors">
                     <td className="border border-gray-300 px-6 py-4 text-gray-700">{item.courseCode}</td>
-                    <td className="border border-gray-300 px-6 py-4 text-gray-500">{item.date}</td>
                     <td className="border border-gray-300 px-6 py-4 text-gray-500">{item.sessionType}</td>
+                    <td className="border border-gray-300 px-6 py-4 text-gray-500">{item.date}</td>
                     <td className="border border-gray-300 px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs ${
                         item.status === "Present" ? "bg-green-200 text-teal-600" : "bg-red-200 text-red-600"
