@@ -502,7 +502,7 @@ export default function Dashboard({ analyticsMode = false }) {
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">years</label>
                 <select value={selyears} onChange={e => setSelyears(e.target.value)} className={selectClass}>
-                  <option value="all">All yearss</option>
+                  <option value="all">All years</option>
                   {["1","2","3","4","5"].map(y => <option key={y} value={y}>years {y}</option>)}
                 </select>
               </div>
@@ -523,8 +523,7 @@ export default function Dashboard({ analyticsMode = false }) {
           <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>
         ) : (
           <>
-            {/* STUDENT METRICS    
-            */}
+            {/* STUDENT METRICS */}
             <div className="mb-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4">Student Metrics</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
