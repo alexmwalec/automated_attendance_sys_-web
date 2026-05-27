@@ -20,7 +20,7 @@ function App() {
         <Route path="/testfirebase" element={<TestFirebase />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/lecturer-sessions" element={<LecturerSessions />} />
-        <Route path="/student-login" element={<StudentAuth />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
       </Routes>
     </Router>
