@@ -6,6 +6,8 @@ import Dashboard from "./Dashboard/Dashboard";
 import Login from "./Login/Login";
 import LecturerSessions from "./LecturerSessions";
 import TestFirebase from "./Test/firebaseTest";
+import StudentAuth from "./StudentAuth";
+import StudentDashboard from "./StudentDashboard";
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
         <Route path="/testfirebase" element={<TestFirebase />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/lecturer-sessions" element={<LecturerSessions />} />
+        <Route path="/student-login" element={<StudentAuth />} />
+        <Route path="/student-dashboard" element={<StudentDashboard />} />
       </Routes>
     </Router>
   );
