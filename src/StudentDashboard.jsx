@@ -45,14 +45,14 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-5xl mx-auto">
-        <header className="flex justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm">
+        <header className="flex justify-between items-center bg-teal-500 mb-8 p-6 rounded-2xl shadow-sm">
           <div>
-            <h1 className="text-2xl font-black text-gray-800">My Attendance</h1>
-            <p className="text-teal-600 font-bold">{regNo}</p>
+            <h1 className="text-2xl font-bold text-teal-800">My Attendance</h1>
+            <p className="text-teal-600 text-white font-bold">{regNo}</p>
           </div>
           <button 
             onClick={() => { auth.signOut(); navigate("/student-login"); }}
-            className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-100"
+            className="bg-red-50 text-red-500 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-100"
           >
             Logout
           </button>
@@ -62,22 +62,22 @@ export default function StudentDashboard() {
           <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Course</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Date</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Type</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Status</th>
+                <th className="px-6 py-4 text-xs border border-gray-300 bg-teal-500 text-bold font-bold text-gray-600 uppercase">Course</th>
+                <th className="px-6 py-4 text-xs border border-gray-300 bg-teal-500 text-bold font-bold text-gray-600 uppercase">Date</th>
+                <th className="px-6 py-4 text-xs border border-gray-300 bg-teal-500 text-bold font-bold text-gray-600 uppercase">Type</th>
+                <th className="px-6 py-4 text-xs border border-gray-300 bg-teal-500 text-bold font-bold text-gray-600 uppercase">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y bg-teal-50 divide-gray-50">
               {myAttendance.length > 0 ? (
                 myAttendance.map((item) => (
                   <tr key={item.id} className="hover:bg-teal-50/30 transition-colors">
-                    <td className="px-6 py-4 font-bold text-gray-700">{item.courseCode}</td>
-                    <td className="px-6 py-4 text-gray-500">{item.date}</td>
-                    <td className="px-6 py-4 text-gray-500">{item.sessionType}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-black ${
-                        item.status === "Present" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    <td className="border border-gray-300 px-6 py-4 text-gray-700">{item.courseCode}</td>
+                    <td className="border border-gray-300 px-6 py-4 text-gray-500">{item.date}</td>
+                    <td className="border border-gray-300 px-6 py-4 text-gray-500">{item.sessionType}</td>
+                    <td className="border border-gray-300 px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs ${
+                        item.status === "Present" ? "bg-green-100 text-teal-600" : "bg-red-100 text-red-600"
                       }`}>
                         {item.status.toUpperCase()}
                       </span>
