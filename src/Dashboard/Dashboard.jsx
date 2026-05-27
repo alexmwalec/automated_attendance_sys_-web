@@ -550,7 +550,7 @@ export default function Dashboard({ analyticsMode = false }) {
                   accent={PRESENT_COLOR}
                 />
                 <StatCard
-                  label="Semester Average"
+                  label="Semester Average Percentage"
                   value={`${semesterAttendanceAverage}%`}
                   accent={PRESENT_COLOR}
                 />

@@ -28,11 +28,11 @@ function Sidebar() {
       path: "/assign",
       icon: <FiClipboard className="h-5 w-5" />,
     },
-    {
+    /*{
       name: "Profile",
       path: "/profile",
       icon: <FiUsers className="h-5 w-5" />,
-    },
+    },*/
   ];
 
   return (
