@@ -38,27 +38,27 @@ export default function StudentDashboard() {
   const regNo = localStorage.getItem("studentRegNo");
 
   useEffect(() => {
-    // If no reg number found, redirect to login
+    // Real-time listener for attendance records
     if (!regNo) {
       navigate("/login");
       return;
     }
 
-    // Real-time listener for attendance records
+    // Find the student's entry in the full attendance list for this record
     const unsub = onSnapshot(collection(db, "attendance"), (snapshot) => {
       const records = [];
 
       snapshot.docs.forEach((doc) => {
         const data = doc.data();
 
-        // Find the student's entry in the full attendance list for this record
+        // Store record if student is found in the attendance list
         const studentEntry = data.fullAttendanceList?.find(
           (s) =>
             s.regNo?.trim().toUpperCase() ===
             regNo.trim().toUpperCase()
         );
 
-        // Store record if student is found in the attendance list
+        // Safely handle missing fields with defaults
         if (studentEntry) {
           records.push({
             id: doc.id,
@@ -77,7 +77,7 @@ export default function StudentDashboard() {
     return () => unsub();
   }, [regNo, navigate]);
 
-  // Unique values for filters
+  // Unique course codes and session types for filter dropdowns
   const uniqueCourses = [
     ...new Set(
       myAttendance.map((r) => r.courseCode).filter(Boolean)
@@ -90,11 +90,11 @@ export default function StudentDashboard() {
     ),
   ];
 
-  // Filter the attendance records based on selected filters
+  // Filter attendance based on selected filters
   let filteredAttendance = myAttendance.filter((item) => {
     let matchesDate = true;
 
-    // Handle date filter separately since it requires formatting
+    // Handle date filter by converting both to YYYY-MM-DD format for comparison
     if (filters.date) {
       const formattedDate = item.date
         ?.split("/")
@@ -115,7 +115,7 @@ export default function StudentDashboard() {
     );
   });
 
-  // Sorting
+  // Sort the filtered attendance based on the current sort configuration
   filteredAttendance.sort((a, b) => {
     let valA = a[sortConfig.key];
     let valB = b[sortConfig.key];
@@ -147,7 +147,7 @@ export default function StudentDashboard() {
     return 0;
   });
 
-  // Pagination Calculations
+  // Paginate the sorted & filtered attendance records
   const totalPages = Math.ceil(
     filteredAttendance.length / ITEMS_PER_PAGE
   );
@@ -157,7 +157,7 @@ export default function StudentDashboard() {
     currentPage * ITEMS_PER_PAGE
   );
 
-  // Handle Filter Changes
+  // Handle filter changes
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
 
@@ -181,7 +181,7 @@ export default function StudentDashboard() {
     setCurrentPage(1);
   };
 
-  // Handle Sorting
+  // Handle sorting when a column header is clicked
   const handleSort = (key) => {
     setSortConfig((prev) => ({
       key,
@@ -203,18 +203,20 @@ export default function StudentDashboard() {
       <div className="max-w-5xl mx-auto">
 
         {/* Header */}
-        <div className="mb-6 flex flex-row items-start sm:items-center justify-between gap-3 bg-teal-500 text-white p-4 sm:p-5 rounded-2xl shadow-md">
+        <div className="mb-6 flex items-center justify-between bg-teal-500 text-white p-5 rounded-2xl shadow-md">
 
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-medium tracking-tight break-words">
+          <div>
+            <h1 className="text-2xl font-medium tracking-tight">
               AAS PORTAL
             </h1>
 
-            <p className="font-medium text-teal-50 text-sm sm:text-lg break-words">
-              <span className="text-black">{regNo}</span>{" "}
-              <span className="text-white">
-                Attendance History
-              </span>
+            <p className="font-medium text-teal-50 text-lg">
+              Student Attendance History
+            </p>
+
+            {/* Display Current Logged In Student */}
+            <p className="font-medium text-black text-sm sm:text-base font-bold mt-1 break-words">
+              {regNo}
             </p>
           </div>
 
@@ -231,7 +233,7 @@ export default function StudentDashboard() {
                 console.error("Logout Error:", error);
               }
             }}
-            className="flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 rounded-full hover:bg-teal-600 active:scale-95 transition"
+            className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-teal-600 transition"
             title="Log Out"
           >
             <FiLogOut className="text-2xl text-white" />
@@ -240,7 +242,7 @@ export default function StudentDashboard() {
 
         {/* Mobile Filters */}
         <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 lg:hidden">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             {/* Course */}
             <div>
@@ -333,9 +335,9 @@ export default function StudentDashboard() {
 
         {/* Table */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto w-full">
+          <div className="overflow-x-auto">
 
-            <table className="w-full text-left min-w-[640px] lg:min-w-[700px]">
+            <table className="w-full text-left min-w-[700px]">
 
               {/* Table Header */}
               <thead className="hidden lg:table-header-group">
@@ -500,7 +502,7 @@ export default function StudentDashboard() {
                   paginatedAttendance.map((item) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-teal-50/30 transition-colors block lg:table-row border-b lg:border-none mb-3 lg:mb-0 bg-white lg:bg-transparent rounded-xl lg:rounded-none p-3 sm:p-4 lg:p-0 overflow-hidden"
+                      className="hover:bg-teal-50/30 transition-colors block lg:table-row border-b lg:border-none mb-3 lg:mb-0 bg-white lg:bg-transparent rounded-xl lg:rounded-none p-3 lg:p-0"
                     >
 
                       <td className="border border-gray-300 px-4 sm:px-6 py-3 sm:py-4 text-gray-700 block lg:table-cell">
@@ -561,7 +563,7 @@ export default function StudentDashboard() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-t bg-white">
+            <div className="flex items-center justify-between px-6 py-4 border-t bg-white">
 
               <button
                 onClick={() =>
@@ -570,7 +572,7 @@ export default function StudentDashboard() {
                   )
                 }
                 disabled={currentPage === 1}
-                className="w-full sm:w-auto px-5 py-2 border rounded-lg disabled:opacity-50 hover:bg-gray-100 active:scale-95 transition"
+                className="px-5 py-2 border rounded-lg disabled:opacity-50 hover:bg-gray-100 transition"
               >
                 Previous
               </button>
@@ -586,7 +588,7 @@ export default function StudentDashboard() {
                   )
                 }
                 disabled={currentPage === totalPages}
-                className="w-full sm:w-auto px-5 py-2 border rounded-lg disabled:opacity-50 hover:bg-gray-100 active:scale-95 transition"
+                className="px-5 py-2 border rounded-lg disabled:opacity-50 hover:bg-gray-100 transition"
               >
                 Next
               </button>
