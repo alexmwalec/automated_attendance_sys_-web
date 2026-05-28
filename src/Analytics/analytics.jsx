@@ -217,7 +217,8 @@ export default function Analytics() {
   }, [flEntrys]);
 
   const weekdayAttendanceData = useMemo(() => {
-    const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => ({
+    const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday",
+                      "Thursday", "Friday", "Saturday"].map(day => ({
       day,
       absent: 0,
       present: 0,
@@ -448,7 +449,6 @@ export default function Analytics() {
                           <td className="px-4 py-3 text-gray-600">{student.regNo}</td>
                           <td className="px-4 py-3 text-gray-600">{student.program}</td>
                           <td className="px-4 py-3 text-gray-600">{student.years}</td>
-                          {/* <td className="px-4 py-3 text-gray-600">{student.department}</td> */}
                           <td className="px-4 py-3 font-semibold text-green-600">{student.present}</td>
                           <td className="px-4 py-3 font-bold text-red-700 text-lg">{student.absent}</td>
                           <td className="px-4 py-3 text-gray-600">{student.rate}%</td>
