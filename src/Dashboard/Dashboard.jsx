@@ -155,14 +155,14 @@ function EmptyChartState({ filtered }) {
 
       <p className="text-sm font-semibold text-gray-700">
         {filtered
-          ? "No records match these filters"
+          ? "No records for these selected filters"
           : "No attendance records yet"}
       </p>
 
       <p className="mt-1 max-w-xs text-xs text-gray-500">
         {filtered
-          ? "Try a different department, course, years, or student."
-          : "Charts will appear here after attendance is captured."}
+          ? "Try selecting different filters."
+          : "Charts will appear."}
       </p>
     </div>
   );
@@ -566,7 +566,10 @@ export default function Dashboard({ analyticsMode = false }) {
             : "-translate-x-full"
         }`}
       >
-        <Sidebar closeSidebar={() => setSidebarOpen(false)} />
+        <Sidebar
+          drawerMode
+          closeSidebar={() => setSidebarOpen(false)}
+        />
       </div>
 
       {/* Main Content */}

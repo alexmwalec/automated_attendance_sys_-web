@@ -9,7 +9,7 @@ import {
   FiUser,
 } from "react-icons/fi";
 
-function Sidebar() {
+function Sidebar({ closeSidebar, drawerMode = false }) {
   const [isOpen, setIsOpen] = useState(true);
 
   const navItems = [
@@ -37,8 +37,18 @@ function Sidebar() {
 
   return (
     <aside
-      className={`relative z-20 flex shrink-0 flex-col bg-teal-50 border-b border-teal-200 p-3 transition-all duration-300 ease-in-out sm:h-screen sm:border-b-0 sm:border-r sm:p-4 ${
-        isOpen ? "w-full sm:w-64" : "w-full sm:w-16"
+      className={`relative z-20 flex shrink-0 flex-col bg-teal-50 border-teal-200 transition-all duration-300 ease-in-out ${
+        drawerMode
+          ? "h-screen border-r p-4"
+          : "border-b p-3 sm:h-screen sm:border-b-0 sm:border-r sm:p-4"
+      } ${
+        isOpen
+          ? drawerMode
+            ? "w-64"
+            : "w-full sm:w-64"
+          : drawerMode
+          ? "w-16"
+          : "w-full sm:w-16"
       }`}
     >
       {/* Toggle Button */}
@@ -58,19 +68,37 @@ function Sidebar() {
       <div className="mb-3 flex items-center gap-3 overflow-hidden pr-10 sm:mb-6 sm:flex-col sm:gap-0 sm:pr-0">
         <div
           className={`bg-teal-100 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
-            isOpen ? "h-10 w-10 sm:h-20 sm:w-20" : "h-9 w-9"
+            isOpen
+              ? drawerMode
+                ? "h-20 w-20"
+                : "h-10 w-10 sm:h-20 sm:w-20"
+              : "h-9 w-9"
           }`}
         >
           <FiUser
             className={`text-teal-600 transition-all duration-300 ${
-              isOpen ? "h-5 w-5 sm:h-10 sm:w-10" : "h-5 w-5"
+              isOpen
+                ? drawerMode
+                  ? "h-10 w-10"
+                  : "h-5 w-5 sm:h-10 sm:w-10"
+                : "h-5 w-5"
             }`}
           />
         </div>
 
         <h2
-          className={`text-xs text-gray-600 whitespace-nowrap transition-all duration-200 sm:mt-2 sm:text-center sm:text-sm ${
-            isOpen ? "opacity-100 max-w-xs sm:max-h-10" : "opacity-0 max-w-0 overflow-hidden sm:max-h-0"
+          className={`text-xs text-gray-600 whitespace-nowrap transition-all duration-200 ${
+            drawerMode
+              ? "mt-2 text-center text-sm"
+              : "sm:mt-2 sm:text-center sm:text-sm"
+          } ${
+            isOpen
+              ? drawerMode
+                ? "opacity-100 max-w-xs max-h-10"
+                : "opacity-100 max-w-xs sm:max-h-10"
+              : drawerMode
+              ? "opacity-0 max-w-0 overflow-hidden max-h-0"
+              : "opacity-0 max-w-0 overflow-hidden sm:max-h-0"
           }`}
         >
           MAIN NAVIGATION MENU
@@ -78,14 +106,23 @@ function Sidebar() {
       </div>
 
       {/* Nav Items */}
-      <nav className="flex gap-2 overflow-x-auto pb-1 sm:block sm:space-y-2 sm:overflow-visible sm:pb-0">
+      <nav
+        className={
+          drawerMode
+            ? "block space-y-2 overflow-visible pb-0"
+            : "flex gap-2 overflow-x-auto pb-1 sm:block sm:space-y-2 sm:overflow-visible sm:pb-0"
+        }
+      >
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
+            onClick={closeSidebar}
             title={!isOpen ? item.name : undefined}
             className={({ isActive }) =>
-              `flex shrink-0 items-center gap-3 rounded-lg px-3 py-2 text-left transition sm:w-full ${
+              `flex shrink-0 items-center gap-3 rounded-lg px-3 py-2 text-left transition ${
+                drawerMode ? "w-full" : "sm:w-full"
+              } ${
                 isActive ? "bg-teal-700 text-white" : "text-gray-600 hover:bg-teal-100"
               } ${!isOpen ? "justify-center" : ""}`
             }
