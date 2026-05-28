@@ -48,7 +48,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 function EmptyChartState() {
   return (
     <div className="flex h-full min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 text-center">
-      <p className="text-sm font-semibold text-gray-700">No attendance records yet</p>
+      <p className="text-sm font-semibold text-gray-700">no attendance records so far</p>
     </div>
   );
 }
@@ -57,16 +57,15 @@ export default function Analytics() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState([]);
-  const [attendance, setAttendance] = useState([]);
   const [students, setStudents] = useState([]);
+  const [attendance, setAttendance] = useState([]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
     return onSnapshot(collection(db, "courses"), (snap) => {
       setCourses(snap.docs.map(d => ({
-        id: d.id, // Document ID (e.g. COM 423)
+        id: d.id, 
         courseName: d.data().courseName || d.id,
-        department: d.data().department || "Unknown",
       })));
     });
   }, []);
@@ -77,10 +76,9 @@ export default function Analytics() {
         id: d.id,
         regNo: d.data().regNo || d.id,
         name: `${d.data().name || ""} ${d.data().surname || ""}`.trim(),
-        program: d.data().program || "N/A", // Fetching program name field
+        program: d.data().program || "N/A", 
         coursesStr: d.data().courses || "",
         years: String(d.data().years || d.data().yearss || ""),
-        department: d.data().department || "",
       })));
     });
   }, []);
@@ -93,11 +91,13 @@ export default function Analytics() {
     });
   }, []);
 
-  const studentInfoByReg = useMemo(() => {
+
+  const stuInfobyRegNo = useMemo(() => {
     return Object.fromEntries(students.map(s => [s.regNo, { ...s }]));
   }, [students]);
 
-  const flatEntries = useMemo(() => {
+
+  const flEntrys = useMemo(() => {
     const rows = [];
     attendance.forEach(doc => {
       const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
@@ -114,7 +114,8 @@ export default function Analytics() {
     return rows;
   }, [attendance]);
 
-  const studentAttendanceData = useMemo(() => {
+
+  const stuAttData = useMemo(() => {
     const map = {};
     attendance.forEach(doc => {
       const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
@@ -122,6 +123,8 @@ export default function Analytics() {
         const regNo = entry.regNo;
         if (!regNo) return;
         const row = map[regNo] ?? { regNo, present: 0, absent: 0, total: 0 };
+
+        // then we need to update the number of either preent or absent 
         if (entry.status === "Present") row.present += 1;
         else row.absent += 1;
         row.total += 1;
@@ -129,7 +132,8 @@ export default function Analytics() {
       });
     });
     return Object.values(map).map(row => {
-      const s = studentInfoByReg[row.regNo] || {};
+      const s = stuInfobyRegNo
+  [row.regNo] || {};
       const rate = row.total ? attpercentage(row.present, row.total) : 0;
       return { 
         ...row, 
@@ -138,33 +142,33 @@ export default function Analytics() {
         displayName: s.name && s.name.length > 0 ? s.name : row.regNo,
       };
     });
-  }, [attendance, studentInfoByReg]);
+  }, [attendance, stuInfobyRegNo
+
+  ]);
 
   const atRiskStudents = useMemo(() => {
-    return studentAttendanceData
+    return stuAttData
       .filter(s => {
-        return s.absent > 10;
+        return s.absent >=  0;
       })
       .sort((a, b) => b.absent - a.absent);
-  }, [studentAttendanceData]);
+  }, [stuAttData]);
 
-  // Logic to Deduplicate Courses and only show the 6 official courses
   const courseAnalytics = useMemo(() => {
     const courseMap = {};
     
-    // Initialize map using official courses to ensure they all appear
     courses.forEach(c => {
       courseMap[c.id.trim().toUpperCase()] = {
         courseCode: c.id,
         totalRecords: 0,
-        present: 0,
         absent: 0,
+        present: 0,
       };
     });
 
     attendance.forEach(doc => {
       const code = doc.courseCode?.trim().toUpperCase();
-      if (!code || !courseMap[code]) return; // Skip if not one of the official courses
+      if (!code || !courseMap[code]) return; 
 
       const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
       courseMap[code].totalRecords += list.length;
@@ -178,10 +182,10 @@ export default function Analytics() {
   }, [attendance, courses]);
 
   const departmentComparison = useMemo(() => {
-    const validDepts = ["Computer Science", "Mathematics", "History"];
+    const validDepts = ["Computer Science", "History"];
     const groups = {};
     
-    studentAttendanceData.forEach(student => {
+    stuAttData.forEach(student => {
       const label = student.department?.trim();
       if (!label || !validDepts.includes(label)) return;
 
@@ -195,12 +199,12 @@ export default function Analytics() {
       .filter(g => g.total > 0)
       .map(g => ({ ...g, rate: attpercentage(g.present, g.total) }))
       .sort((a, b) => b.rate - a.rate);
-  }, [studentAttendanceData]);
+  }, [stuAttData]);
 
   const hourlyAttendanceData = useMemo(() => {
     const hours = {};
     for (let i = 6; i <= 18; i++) hours[i] = { hour: `${i}:00`, present: 0, absent: 0, total: 0 };
-    flatEntries.forEach(entry => {
+    flEntrys.forEach(entry => {
       const date = entry.dateObject;
       const hour = date ? date.getHours() : (Math.floor(Math.random() * 13) + 6);
       if (hours[hour]) {
@@ -210,16 +214,16 @@ export default function Analytics() {
       }
     });
     return Object.values(hours);
-  }, [flatEntries]);
+  }, [flEntrys]);
 
   const weekdayAttendanceData = useMemo(() => {
     const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => ({
       day,
-      present: 0,
       absent: 0,
+      present: 0,
       total: 0,
     }));
-    flatEntries.forEach(entry => {
+    flEntrys.forEach(entry => {
       const date = entry.dateObject;
       if (date) {
         const dayIndex = date.getDay();
@@ -229,12 +233,12 @@ export default function Analytics() {
       }
     });
     return weekdays.map(d => ({ ...d, rate: d.total > 0 ? attpercentage(d.present, d.total) : 0 }));
-  }, [flatEntries]);
+  }, [flEntrys]);
 
   const timeOfDayAnalytics = useMemo(() => {
     const morning = { name: "Morning (6AM-12PM)", present: 0, absent: 0, total: 0 };
     const afternoon = { name: "Afternoon (12PM-6PM)", present: 0, absent: 0, total: 0 };
-    flatEntries.forEach(entry => {
+    flEntrys.forEach(entry => {
       const date = entry.dateObject;
       if (date) {
         const hour = date.getHours();
@@ -248,9 +252,9 @@ export default function Analytics() {
       { ...morning, rate: morning.total > 0 ? attpercentage(morning.present, morning.total) : 0 },
       { ...afternoon, rate: afternoon.total > 0 ? attpercentage(afternoon.present, afternoon.total) : 0 },
     ];
-  }, [flatEntries]);
+  }, [flEntrys]);
 
-  const hasChartData = flatEntries.length > 0;
+  const hasChart = flEntrys.length > 0;
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 font-sans sm:h-screen sm:flex-row">
@@ -258,7 +262,7 @@ export default function Analytics() {
       <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-5">
         <div className="relative mb-5 flex flex-col gap-3 rounded-2xl bg-teal-500 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 shadow-md">
           <div>
-            <h1 className="text-white text-lg tracking-tight font-bold">Advanced Analytics</h1>
+            <h1 className="text-white text-lg tracking-tight font-bold">Analytics</h1>
           </div>
           <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 text-white hover:bg-teal-400">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
@@ -278,13 +282,13 @@ export default function Analytics() {
           <>
             <h2 className="text-lg font-bold text-gray-800 mb-4 mt-6">Time-Based Attendance Analysis</h2>
             <div className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <h3 className="font-bold text-gray-700 text-sm mb-2">Attendance by Hour</h3>
-              {hasChartData ? (
+              <h3 className="font-bold text-gray-700 text-lg mb-2">Total Attendance by Hour</h3>
+              {hasChart ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={hourlyAttendanceData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="hour" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} />
+                    <XAxis dataKey="hour" tick={{ fontSize: 18 }} />
+                    <YAxis tick={{ fontSize: 18 }} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
                     <Bar dataKey="present" fill={PRESENT_COLOR} name="Present" />
@@ -298,13 +302,13 @@ export default function Analytics() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-700 text-sm mb-2">Attendance by Weekday</h3>
+                <h3 className="font-bold text-gray-700 text-lg mb-2">Attendance by Weekday</h3>
                 {weekdayAttendanceData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={weekdayAttendanceData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="day" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
+                      <XAxis dataKey="day" tick={{ fontSize: 17 }} />
+                      <YAxis tick={{ fontSize: 17 }} domain={[0, 100]} />
                       <Tooltip content={<CustomTooltip />} />
                       <Line type="monotone" dataKey="rate" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} name="Attendance %" />
                     </LineChart>
@@ -315,13 +319,13 @@ export default function Analytics() {
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-700 text-sm mb-2">Morning vs Afternoon Attendance</h3>
+                <h3 className="font-bold text-gray-700 text-lg mb-2">Morning vs Afternoon Attendance</h3>
                 {timeOfDayAnalytics.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <BarChart data={timeOfDayAnalytics}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-15} textAnchor="end" height={60} />
-                      <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
+                      <YAxis tick={{ fontSize: 18 }} domain={[0, 100]} />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="rate" fill="#10b981" name="Attendance %" radius={[8, 8, 0, 0]} />
                     </BarChart>
@@ -338,11 +342,11 @@ export default function Analytics() {
                 <table className="w-full text-sm">
                   <thead className="bg-teal-600 border-b border-gray-200">
                     <tr>
-                      <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Course</th>
-                      <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Total Attendance Records</th>
-                      <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Present Students</th>
-                      <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Absent Students</th>
-                      <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Attendance Percentage</th>
+                      <th className="px-4 py-3 text-lg text-white text-left font-semibold text-gray-700">Course</th>
+                      <th className="px-4 py-3 text-lg text-white text-left font-semibold text-gray-700">Total Attendance Records</th>
+                      <th className="px-4 py-3 text-lg text-white text-left font-semibold text-gray-700">Present Students</th>
+                      <th className="px-4 py-3 text-lg text-white text-left font-semibold text-gray-700">Absent Students</th>
+                      <th className="px-4 py-3 text-lg text-white text-left font-semibold text-gray-700">Attendance Percentage</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -377,7 +381,7 @@ export default function Analytics() {
             <h2 className="text-lg font-bold text-gray-800 mb-2 mt-8">Department Performance Analysis</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-700 text-sm mb-4">Department Leaderboard</h3>
+                <h3 className="font-bold text-gray-700 text-lg mb-4">Department Leaderboard</h3>
                 {departmentComparison.length > 0 ? (
                   <div className="space-y-2">
                     {departmentComparison.map((dept, idx) => (
