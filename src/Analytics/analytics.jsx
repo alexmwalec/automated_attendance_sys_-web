@@ -431,14 +431,14 @@ export default function Analytics() {
                   <table className="w-full text-sm">
                     <thead className="bg-teal-600 border border-gray-200">
                       <tr>
-                        <th className="px-4 py-3 text-white text-left font-semibold">Student Name</th>
-                        <th className="px-4 py-3 text-white text-left font-semibold">Reg Number</th>
-                        <th className="px-4 py-3 text-white text-left font-semibold">Program</th>
-                        <th className="px-4 py-3 text-white text-left font-semibold">Year</th>
+                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Student Name</th>
+                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Reg Number</th>
+                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Program</th>
+                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Year</th>
                         {/* <th className="px-4 py-3 text-white text-left font-semibold">Department</th> */}
-                        <th className="px-4 py-3 text-white text-left font-semibold">Present</th>
-                        <th className="px-4 py-3 text-white text-left font-semibold">Absent</th>
-                        <th className="px-4 py-3 text-white text-left font-semibold">Attendance Percentage</th>
+                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Present</th>
+                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Absent</th>
+                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Attendance Percentage</th>
                       </tr>
                     </thead>
                     <tbody>
