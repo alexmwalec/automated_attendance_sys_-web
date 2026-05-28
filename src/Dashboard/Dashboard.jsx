@@ -607,10 +607,7 @@ export default function Dashboard({ analyticsMode = false }) {
                 Attendance Insights
               </h1>
 
-              <p className="text-teal-100 text-xs sm:text-sm">
-                Monitoring {courses.length} courses and{" "}
-                {students.length} students
-              </p>
+              
             </div>
 
             {/* Profile */}
