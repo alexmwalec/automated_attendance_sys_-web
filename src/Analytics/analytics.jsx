@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
+  BarChart, Bar, LineChart, Line, 
+  XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   ResponsiveContainer,
 } from "recharts";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import Sidebar from "../components/sidebar";
 
-const PRESENT_COLOR = "#10b981";
 const ABSENT_COLOR = "#1306069d";
+const PRESENT_COLOR = "#10b981";
 
-function pct(a, total) {
+function attpercentage(a, total) {
   return total === 0 ? 0 : Math.round((a / total) * 100);
 }
 
@@ -36,7 +37,7 @@ const CustomTooltip = ({ active, payload, label }) => {
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.fill }} className="flex justify-between gap-4">
           <span>{p.name}</span>
-          <span className="font-bold">{p.value} ({total > 0 ? pct(p.value, total) : 0}%)</span>
+          <span className="font-bold">{p.value} ({total > 0 ? attpercentage(p.value, total) : 0}%)</span>
         </p>
       ))}
       <p className="text-gray-400 text-xs mt-1 border-t pt-1">Total: {total}</p>
@@ -129,7 +130,7 @@ export default function Analytics() {
     });
     return Object.values(map).map(row => {
       const s = studentInfoByReg[row.regNo] || {};
-      const rate = row.total ? pct(row.present, row.total) : 0;
+      const rate = row.total ? attpercentage(row.present, row.total) : 0;
       return { 
         ...row, 
         ...s, 
@@ -142,14 +143,9 @@ export default function Analytics() {
   const atRiskStudents = useMemo(() => {
     return studentAttendanceData
       .filter(s => {
-        const hasSlash = /\//.test(s.regNo);
-        return s.total > 0 && s.rate < 75 && hasSlash;
+        return s.absent > 10;
       })
-      .map(s => ({
-        ...s,
-        riskLevel: s.rate < 50 ? "Critical" : s.rate < 60 ? "High" : "Medium",
-      }))
-      .sort((a, b) => a.rate - b.rate);
+      .sort((a, b) => b.absent - a.absent);
   }, [studentAttendanceData]);
 
   // Logic to Deduplicate Courses and only show the 6 official courses
@@ -177,7 +173,7 @@ export default function Analytics() {
     });
 
     return Object.values(courseMap)
-      .map(c => ({ ...c, avgAttendance: c.totalRecords > 0 ? pct(c.present, c.totalRecords) : 0 }))
+      .map(c => ({ ...c, avgAttendance: c.totalRecords > 0 ? attpercentage(c.present, c.totalRecords) : 0 }))
       .sort((a, b) => b.avgAttendance - a.avgAttendance);
   }, [attendance, courses]);
 
@@ -197,7 +193,7 @@ export default function Analytics() {
     });
     return Object.values(groups)
       .filter(g => g.total > 0)
-      .map(g => ({ ...g, rate: pct(g.present, g.total) }))
+      .map(g => ({ ...g, rate: attpercentage(g.present, g.total) }))
       .sort((a, b) => b.rate - a.rate);
   }, [studentAttendanceData]);
 
@@ -232,7 +228,7 @@ export default function Analytics() {
         weekdays[dayIndex].total++;
       }
     });
-    return weekdays.map(d => ({ ...d, rate: d.total > 0 ? pct(d.present, d.total) : 0 }));
+    return weekdays.map(d => ({ ...d, rate: d.total > 0 ? attpercentage(d.present, d.total) : 0 }));
   }, [flatEntries]);
 
   const timeOfDayAnalytics = useMemo(() => {
@@ -249,8 +245,8 @@ export default function Analytics() {
       }
     });
     return [
-      { ...morning, rate: morning.total > 0 ? pct(morning.present, morning.total) : 0 },
-      { ...afternoon, rate: afternoon.total > 0 ? pct(afternoon.present, afternoon.total) : 0 },
+      { ...morning, rate: morning.total > 0 ? attpercentage(morning.present, morning.total) : 0 },
+      { ...afternoon, rate: afternoon.total > 0 ? attpercentage(afternoon.present, afternoon.total) : 0 },
     ];
   }, [flatEntries]);
 
@@ -340,13 +336,13 @@ export default function Analytics() {
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-teal-600 border-b border-gray-200">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Course</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Total Attendance Records</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Present Students</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Absent Students</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Attendance Percentage</th>
+                      <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Course</th>
+                      <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Total Attendance Records</th>
+                      <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Present Students</th>
+                      <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Absent Students</th>
+                      <th className="px-4 py-3 text-white text-left font-semibold text-gray-700">Attendance Percentage</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -429,33 +425,29 @@ export default function Analytics() {
               {atRiskStudents.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-teal-500 border-b border-gray-200">
+                    <thead className="bg-teal-600 border border-gray-200">
                       <tr>
                         <th className="px-4 py-3 text-white text-left font-semibold">Student Name</th>
                         <th className="px-4 py-3 text-white text-left font-semibold">Reg Number</th>
                         <th className="px-4 py-3 text-white text-left font-semibold">Program</th>
                         <th className="px-4 py-3 text-white text-left font-semibold">Year</th>
-                        <th className="px-4 py-3 text-white text-left font-semibold">Attendance %</th>
-                        <th className="px-4 py-3 text-white text-left font-semibold">Risk Level</th>
+                        {/* <th className="px-4 py-3 text-white text-left font-semibold">Department</th> */}
+                        <th className="px-4 py-3 text-white text-left font-semibold">Present</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold">Absent</th>
+                        <th className="px-4 py-3 text-white text-left font-semibold">Attendance Percentage</th>
                       </tr>
                     </thead>
                     <tbody>
                       {atRiskStudents.slice(0, 25).map((student, idx) => (
-                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                        <tr key={idx} className="border-b border-gray-100 hover:bg-teal-50">
                           <td className="px-4 py-3 font-medium text-gray-800">{student.displayName}</td>
                           <td className="px-4 py-3 text-gray-600">{student.regNo}</td>
                           <td className="px-4 py-3 text-gray-600">{student.program}</td>
                           <td className="px-4 py-3 text-gray-600">{student.years}</td>
-                          <td className="px-4 py-3 font-bold text-red-600">{student.rate}%</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                              student.riskLevel === "Critical" ? "bg-red-100 text-red-700" :
-                              student.riskLevel === "High" ? "bg-orange-100 text-orange-700" :
-                              "bg-yellow-100 text-yellow-700"
-                            }`}>
-                              {student.riskLevel}
-                            </span>
-                          </td>
+                          {/* <td className="px-4 py-3 text-gray-600">{student.department}</td> */}
+                          <td className="px-4 py-3 font-semibold text-green-600">{student.present}</td>
+                          <td className="px-4 py-3 font-bold text-red-700 text-lg">{student.absent}</td>
+                          <td className="px-4 py-3 text-gray-600">{student.rate}%</td>
                         </tr>
                       ))}
                     </tbody>
@@ -463,7 +455,7 @@ export default function Analytics() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
-                  <p>No at-risk students found.</p>
+                  <p>No students with more than 10 absences found.</p>
                 </div>
               )}
             </div>
@@ -473,3 +465,4 @@ export default function Analytics() {
     </div>
   );
 }
+
