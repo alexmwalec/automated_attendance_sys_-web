@@ -2,18 +2,15 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
-  PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area,
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
+  ResponsiveContainer
 } from "recharts";
-import { collection, onSnapshot, query } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import Sidebar from "../components/sidebar";
 
-//Semantic color palette
 const PRESENT_COLOR = "#10b981";
 const ABSENT_COLOR  = "#1306069d";   
 
-// Helper functions
 function pct(a, total) {
   return total === 0 ? 0 : Math.round((a / total) * 100);
 }
@@ -25,10 +22,6 @@ function getISOWeek(date) {
   const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
   const diff = target - firstThursday;
   return 1 + Math.round(diff / 604800000);
-}
-
-function getWeekdayLabel(date) {
-  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][date.getDay()];
 }
 
 function getWeekLabel(date) {
@@ -121,7 +114,6 @@ export default function Dashboard({ analyticsMode = false }) {
   const [selCourse, setSelCourse] = useState(""); 
   const [selStudent, setSelStudent] = useState(""); 
 
-  // 1. Fetch Course Data
   useEffect(() => {
     return onSnapshot(collection(db, "courses"), (snap) => {
       setCourses(snap.docs.map(d => ({
@@ -133,14 +125,13 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, []);
 
-  // 2. Fetch Student Data
   useEffect(() => {
     return onSnapshot(collection(db, "students"), (snap) => {
       setStudents(snap.docs.map(d => ({
         id: d.id,
-        regNo: d.data().regNo || d.id,
+        regNo: d.data().regno || d.data().regNo || d.id, 
         name: `${d.data().name || ""} ${d.data().surname || ""}`.trim(),
-        program: d.data().program || "",
+        program: d.data().program || "", // String matching program collection name
         years: String(d.data().years || d.data().yearss || ""),
         department: d.data().department || "",
         enrolledCourses: d.data().assignedCourses || d.data().courses || [], 
@@ -148,7 +139,6 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, []);
 
-  // 3. Fetch Sessions
   useEffect(() => {
     return onSnapshot(collection(db, "sessions"), (snap) => {
         if (!snap.empty) {
@@ -166,13 +156,12 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, []);
 
-  // 4. Fetch Programs
   useEffect(() => {
     return onSnapshot(collection(db, "programs"), (snap) => {
       if (!snap.empty) {
         setPrograms(snap.docs.map(d => ({
           id: d.id,
-          name: d.data().name || d.id,
+          name: d.data().name || d.id, // Using 'name' field from programs collection
         })));
       } else {
         const uniqueProgs = [...new Set(students.map(s => s.program).filter(Boolean))];
@@ -181,7 +170,6 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, [students]);
 
-  // 5. Fetch Attendance Data
   useEffect(() => {
     setLoading(true);
     return onSnapshot(collection(db, "attendance"), (snap) => {
@@ -190,7 +178,6 @@ export default function Dashboard({ analyticsMode = false }) {
     });
   }, []);
 
-  // Derived Filter Options
   const uniqueDepts = useMemo(() => {
     const depts = courses.map(c => c.department).filter(d => d && d !== "Unassigned" && d !== "Unknown");
     return [...new Set(depts)].sort();
@@ -218,98 +205,90 @@ export default function Dashboard({ analyticsMode = false }) {
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  // Process Flat Data for Charts
+  const studentMap = useMemo(() => {
+    return Object.fromEntries(students.map(s => [s.regNo, s]));
+  }, [students]);
+
   const flatEntries = useMemo(() => {
-    let filteredAttendance = attendance;
-
-    if (selSession) {
-      filteredAttendance = filteredAttendance.filter(doc => doc.sessionType === selSession);
-    }
-
-    if (selCourse) {
-      filteredAttendance = filteredAttendance.filter(d => d.courseCode === selCourse);
-    } else if (selDept) {
-        const deptCourseIds = new Set(courses.filter(c => c.department === selDept).map(c => c.id));
-        filteredAttendance = filteredAttendance.filter(d => deptCourseIds.has(d.courseCode));
-    }
-
     const rows = [];
-    filteredAttendance.forEach(doc => {
+    const filteredDocs = attendance.filter(doc => {
+      if (selSession && doc.sessionType !== selSession) return false;
+      if (selCourse && doc.courseCode !== selCourse) return false;
+      if (selDept && !selCourse) {
+        const deptCourseIds = new Set(courses.filter(c => c.department === selDept).map(c => c.id));
+        if (!deptCourseIds.has(doc.courseCode)) return false;
+      }
+      return true;
+    });
+
+    filteredDocs.forEach(doc => {
       const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
       list.forEach(entry => {
-        const sInfo = students.find(s => s.regNo === entry.regNo);
-        
+        const sInfo = studentMap[entry.regNo];
+        if (selStudent && entry.regNo !== selStudent) return;
         if (selProgram && sInfo?.program !== selProgram) return;
         if (selyears !== "all" && sInfo?.years !== selyears) return;
-        if (selStudent && entry.regNo !== selStudent) return;
 
         rows.push({
           courseCode: doc.courseCode,
           date: doc.date || "Unknown",
           regNo: entry.regNo || "",
           status: entry.status || "Absent",
+          sessionType: doc.sessionType,
         });
       });
     });
-
     return rows;
-  }, [attendance, selCourse, selDept, selStudent, selyears, selSession, selProgram, courses, students]);
+  }, [attendance, selCourse, selDept, selStudent, selyears, selSession, selProgram, courses, studentMap]);
 
-  const studentInfoByReg = useMemo(() => {
-    return Object.fromEntries(students.map(s => [s.regNo, { ...s }]));
-  }, [students]);
-
-  const studentAttendanceData = useMemo(() => {
-    const map = {};
-    attendance.forEach(doc => {
-      const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
-      list.forEach(entry => {
-        const regNo = entry.regNo;
-        if (!regNo) return;
-        const row = map[regNo] ?? { regNo, present: 0, absent: 0, total: 0, courses: new Set() };
-        if (entry.status === "Present") row.present += 1;
-        else row.absent += 1;
-        row.total += 1;
-        row.courses.add(doc.courseCode);
-        map[regNo] = row;
-      });
-    });
-
-    return Object.values(map).map(row => {
-      const s = studentInfoByReg[row.regNo] || {};
-      const rate = row.total ? pct(row.present, row.total) : 0;
-      return {
-        ...row,
-        ...s,
-        rate,
-        riskScore: row.total ? Math.round(100 - rate) : 0,
-      };
-    });
-  }, [attendance, studentInfoByReg]);
-
-  // Analytics Calculations
   const stats = useMemo(() => {
     const total = flatEntries.length;
     const present = flatEntries.filter(e => e.status === "Present").length;
-    return { total, present, absent: total - present, rate: pct(present, total) };
+    return { 
+        total, 
+        present, 
+        absent: total - present, 
+        rate: pct(present, total) 
+    };
   }, [flatEntries]);
 
   const todayStats = useMemo(() => {
     const todayRows = flatEntries.filter(e => e.date === todayStr);
     const total = todayRows.length;
     const present = todayRows.filter(e => e.status === "Present").length;
-    return { total, present, absent: total - present, rate: pct(present, total) };
+    return { 
+        total, 
+        present, 
+        absent: total - present, 
+        rate: pct(present, total) 
+    };
   }, [flatEntries, todayStr]);
+
+  const studentAttendanceData = useMemo(() => {
+    const map = {};
+    flatEntries.forEach(e => {
+      const row = map[e.regNo] ?? { regNo: e.regNo, present: 0, absent: 0, total: 0 };
+      if (e.status === "Present") row.present += 1;
+      else row.absent += 1;
+      row.total += 1;
+      map[e.regNo] = row;
+    });
+
+    return Object.values(map).map(row => {
+      const s = studentMap[row.regNo] || {};
+      const rate = row.total ? pct(row.present, row.total) : 0;
+      return { ...row, ...s, rate };
+    });
+  }, [flatEntries, studentMap]);
 
   const buildGroupMetrics = (field) => {
     const groups = {};
     studentAttendanceData.forEach(student => {
       const label = student[field] || "Unknown";
-      const row = groups[label] ?? { label, present: 0, absent: 0, total: 0, students: 0 };
+      const row = groups[label] ?? { label, present: 0, absent: 0, total: 0 };
       row.present += student.present || 0;
       row.absent += student.absent || 0;
       row.total += student.total || 0;
-      row.students += 1;
       groups[label] = row;
     });
     return Object.values(groups)
@@ -318,13 +297,22 @@ export default function Dashboard({ analyticsMode = false }) {
       .sort((a, b) => b.rate - a.rate);
   };
 
-  const facultyComparison = useMemo(() => buildGroupMetrics("faculty"), [studentAttendanceData]);
-  const departmentComparison = useMemo(() => buildGroupMetrics("department"), [studentAttendanceData]);
+  const institutionalComparison = useMemo(() => {
+      const metrics = buildGroupMetrics("department");
+      return metrics.filter(m => 
+        m.label.trim() === "Computer Science" || 
+        m.label.trim() === "History"
+      );
+  }, [studentAttendanceData]);
 
-  const semesterAttendanceAverage = useMemo(() => {
-    if (stats.total === 0) return 0;
-    return stats.rate;
-  }, [stats]);
+  const trendData = useMemo(() => {
+    const map = {};
+    flatEntries.forEach(e => {
+      if (!map[e.date]) map[e.date] = { date: e.date, Present: 0, Absent: 0 };
+      e.status === "Present" ? map[e.date].Present++ : map[e.date].Absent++;
+    });
+    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+  }, [flatEntries]);
 
   const weeklyAttendanceData = useMemo(() => {
     const map = {};
@@ -361,89 +349,13 @@ export default function Dashboard({ analyticsMode = false }) {
     }));
   }, [monthlyAttendanceData]);
 
-  const hasActiveFilters = !!(selSession || selProgram || selDept || selCourse || selyears !== "all" || selStudent);
-  const lateArrivalsToday = todayStats.total;
-
-  const atRiskStudents = useMemo(() => {
-    return studentAttendanceData
-      .filter(s => s.total > 0 && s.rate < 75)
-      .map(s => ({
-        ...s,
-        riskLevel: s.rate < 50 ? "Critical" : s.rate < 60 ? "High" : "Medium",
-        consecutiveAbsences: 0,
-      }))
-      .sort((a, b) => a.rate - b.rate)
-      .slice(0, 20);
-  }, [studentAttendanceData]);
-
-  const courseAnalytics = useMemo(() => {
-    const courseMap = {};
-    attendance.forEach(doc => {
-      if (!courseMap[doc.courseCode]) {
-        courseMap[doc.courseCode] = {
-          courseCode: doc.courseCode,
-          courseName: courses.find(c => c.id === doc.courseCode)?.courseName || doc.courseCode,
-          totalRecords: 0,
-          present: 0,
-          absent: 0,
-          dates: [],
-        };
-      }
-      const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
-      courseMap[doc.courseCode].totalRecords += list.length;
-      courseMap[doc.courseCode].present += list.filter(e => e.status === "Present").length;
-      courseMap[doc.courseCode].absent += list.filter(e => e.status !== "Present").length;
-      courseMap[doc.courseCode].dates.push(doc.date);
-    });
-
-    return Object.values(courseMap)
-      .map(c => ({
-        ...c,
-        avgAttendance: c.totalRecords > 0 ? pct(c.present, c.totalRecords) : 0,
-      }))
-      .sort((a, b) => b.avgAttendance - a.avgAttendance);
-  }, [attendance, courses]);
-
-  const weekdayAttendanceData = useMemo(() => {
-    const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => ({
-      day,
-      present: 0,
-      absent: 0,
-      total: 0,
-    }));
-
-    flatEntries.forEach(entry => {
-      const date = parseAttendanceDate(entry.date);
-      if (date && !Number.isNaN(date.getTime())) {
-        const dayIndex = date.getDay();
-        if (entry.status === "Present") weekdays[dayIndex].present++;
-        else weekdays[dayIndex].absent++;
-        weekdays[dayIndex].total++;
-      }
-    });
-
-    return weekdays.map(d => ({
-      ...d,
-      rate: d.total > 0 ? pct(d.present, d.total) : 0,
-    }));
-  }, [flatEntries]);
-
   const clearAll = useCallback(() => {
     setSelyears("all"); setSelDept("");
     setSelProgram(""); setSelSession("");
     setSelCourse(""); setSelStudent("");
   }, []);
 
-  const trendData = useMemo(() => {
-    const map = {};
-    flatEntries.forEach(e => {
-      if (!map[e.date]) map[e.date] = { date: e.date, Present: 0, Absent: 0 };
-      e.status === "Present" ? map[e.date].Present++ : map[e.date].Absent++;
-    });
-    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
-  }, [flatEntries]);
-
-  const hasChartData = stats.total > 0;
+  const hasActiveFilters = !!(selSession || selProgram || selDept || selCourse || selyears !== "all" || selStudent);
   const selectClass = "w-full rounded-xl border border-teal-400 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 transition-all cursor-pointer appearance-none";
 
   return (
@@ -468,7 +380,6 @@ export default function Dashboard({ analyticsMode = false }) {
           )}
         </div>
 
-        {/* Filter Section */}
         <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm overflow-x-auto">
             <div className="min-w-[1200px] grid grid-cols-6 gap-3">
               <div>
@@ -482,7 +393,7 @@ export default function Dashboard({ analyticsMode = false }) {
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Program</label>
                 <select value={selProgram} onChange={e => setSelProgram(e.target.value)} className={selectClass}>
                   <option value="">All Programs</option>
-                  {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {programs.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                 </select>
               </div>
               <div>
@@ -496,14 +407,14 @@ export default function Dashboard({ analyticsMode = false }) {
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Course</label>
                 <select value={selCourse} onChange={e => setSelCourse(e.target.value)} className={selectClass}>
                   <option value="">All Courses</option>
-                  {filteredCourseOptions.map(c => <option key={c.id} value={c.id}>{c.courseName}</option>)}
+                  {filteredCourseOptions.map(c => <option key={c.id} value={c.id}>{c.id}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">years</label>
+                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Years</label>
                 <select value={selyears} onChange={e => setSelyears(e.target.value)} className={selectClass}>
-                  <option value="all">All years</option>
-                  {["1","2","3","4","5"].map(y => <option key={y} value={y}>years {y}</option>)}
+                  <option value="all">All Years</option>
+                  {["1","2","3","4","5"].map(y => <option key={y} value={y}>Year {y}</option>)}
                 </select>
               </div>
               <div>
@@ -523,48 +434,37 @@ export default function Dashboard({ analyticsMode = false }) {
           <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>
         ) : (
           <>
-            {/* STUDENT METRICS */}
             <div className="mb-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4">Student Metrics</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
-                {/*Green cards first*/}
-                <StatCard label="Total Registered"  value={filteredStudentOptions.length}                                         accent={PRESENT_COLOR} />
-                <StatCard label="Present Today"      value={todayStats.present}                                                   accent={PRESENT_COLOR} />
-                <StatCard label="Attendance %"       value={`${stats.rate}%`}                                                     accent={PRESENT_COLOR} />
-                {/*Red cards grouped*/}
-                <StatCard label="Absent Today"       value={todayStats.absent}                                                    accent={ABSENT_COLOR}  />
-                <StatCard label="At Risk (<75%)"     value={studentAttendanceData.filter(s => s.rate < 75 && s.total > 0).length} accent={ABSENT_COLOR}  />
-                <StatCard label="Late Arrivals"      value={lateArrivalsToday}                                                    accent={ABSENT_COLOR}  />
+                <StatCard label="Selected Entries"    value={flatEntries.length}                                                   accent={PRESENT_COLOR} />
+                <StatCard label="Present (Selected)"  value={stats.present}                                                        accent={PRESENT_COLOR} />
+                <StatCard label="Attendance"          value={stats.rate}                                                           accent={PRESENT_COLOR} />
+                <StatCard label="Absent (Selected)"   value={stats.absent}                                                         accent={ABSENT_COLOR}  />
+                <StatCard label="At Risk entries"     value={studentAttendanceData.filter(s => s.rate < 75).length}                accent={ABSENT_COLOR}  />
+                <StatCard label="Today's Entries"     value={todayStats.total}                                                     accent={ABSENT_COLOR}  />
               </div>
             </div>
 
-            {/* INSTITUTIONAL METRICS */}
             <div className="mb-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4">Institutional Metrics</h2>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-                {/*Green cards first*/}
                 <StatCard
-                  label="Best Department"
-                  value={departmentComparison.length > 0 ? departmentComparison[0].label : "N/A"}
-                  sub={departmentComparison.length > 0 ? `${departmentComparison[0].rate}% attendance` : ""}
+                  label="Top Segment"
+                  value={institutionalComparison.length > 0 ? institutionalComparison[0].label : "N/A"}
+                  sub={institutionalComparison.length > 0 ? "Highest Attendance" : ""}
                   accent={PRESENT_COLOR}
                 />
+             
                 <StatCard
-                  label="Semester Average Percentage"
-                  value={`${semesterAttendanceAverage}%`}
-                  accent={PRESENT_COLOR}
-                />
-                {/*Red card last*/}
-                <StatCard
-                  label="Lowest Department"
-                  value={departmentComparison.length > 0 ? departmentComparison[departmentComparison.length - 1].label : "N/A"}
-                  sub={departmentComparison.length > 0 ? `${departmentComparison[departmentComparison.length - 1].rate}% attendance` : ""}
+                  label="Lowest Segment"
+                  value={institutionalComparison.length > 1 ? institutionalComparison[institutionalComparison.length - 1].label : "N/A"}
+                  sub={institutionalComparison.length > 1 ? "Lowest Attendance" : ""}
                   accent={ABSENT_COLOR}
                 />
               </div>
             </div>
 
-            {/* DAILY TREND CHART */}
             <div className="mb-6">
               <h2 className="text-lg font-bold text-gray-800 mb-2">Daily Attendance Trends</h2>
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
@@ -587,7 +487,6 @@ export default function Dashboard({ analyticsMode = false }) {
             </div>
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 mb-6">
-              {/* WEEKLY & MONTHLY */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold text-gray-800 mb-2">Weekly and Monthly Attendance</h2>
                 <div className="space-y-6">
@@ -630,7 +529,6 @@ export default function Dashboard({ analyticsMode = false }) {
                 </div>
               </div>
 
-              {/* SEMESTER TREND */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold text-gray-800 mb-2">Semester Performance Trends</h2>
                 {semesterTrendData.length > 0 ? (
@@ -640,7 +538,7 @@ export default function Dashboard({ analyticsMode = false }) {
                       <XAxis dataKey="period" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={45} />
                       <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Line type="monotone" dataKey="rate" stroke={PRESENT_COLOR} strokeWidth={3} dot={{ r: 4 }} name="Attendance %" />
+                      <Line type="monotone" dataKey="rate" stroke={PRESENT_COLOR} strokeWidth={3} dot={{ r: 4 }} name="Attendance" />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
