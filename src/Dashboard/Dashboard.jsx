@@ -553,14 +553,14 @@ export default function Dashboard({ analyticsMode = false }) {
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 sm:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 left-0 z-50 h-full transform bg-white transition-transform duration-300 lg:static lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 h-full transform bg-white transition-transform duration-300 sm:static sm:translate-x-0 ${
           sidebarOpen
             ? "translate-x-0"
             : "-translate-x-full"
@@ -586,7 +586,7 @@ export default function Dashboard({ analyticsMode = false }) {
               onClick={() =>
                 setSidebarOpen(!sidebarOpen)
               }
-              className="lg:hidden rounded-xl bg-white/20 p-2 text-white"
+              className="sm:hidden rounded-xl bg-white/20 p-2 text-white"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
