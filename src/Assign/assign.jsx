@@ -110,6 +110,7 @@ function AssignInvigilator() {
 
   const [editingId, setEditingId]               = useState(null);
   const [showProfileMenu, setShowProfileMenu]   = useState(false);
+  const [sidebarOpen, setSidebarOpen]           = useState(false);
   const [assignedInvigilators, setAssignedInvigilators] = useState([]);
   const [allInvigilators, setAllInvigilators]   = useState([]);
   const [allCourses, setAllCourses]             = useState([]);
@@ -383,14 +384,55 @@ function AssignInvigilator() {
 
   //Rendering
   return (
-    <div className="flex min-h-screen flex-col bg-gray-100 sm:h-screen sm:flex-row">
-      <Sidebar />
+    <div className="flex min-h-screen bg-gray-100">
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <div
+        className={`fixed top-0 left-0 z-50 h-full transform bg-white transition-transform duration-300 lg:static lg:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <Sidebar
+          drawerMode
+          closeSidebar={() => setSidebarOpen(false)}
+        />
+      </div>
 
       <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
 
         {/* Header */}
         <div className="relative mb-4 flex items-center justify-between rounded-lg bg-teal-500 px-4 py-3 text-white">
-          <span className="font-bold">Assign Exam Invigilator</span>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="lg:hidden rounded-xl bg-white/20 p-2 text-white"
+              aria-label="Open sidebar"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="h-6 w-6"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                />
+              </svg>
+            </button>
+
+            <span className="min-w-0 font-bold">Assign Exam Invigilator</span>
+          </div>
+
           <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="rounded-full p-2 hover:bg-teal-400">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.0} stroke="currentColor" className="h-6 w-6">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
