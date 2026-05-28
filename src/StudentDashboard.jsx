@@ -2,15 +2,20 @@ import React, { useEffect, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import {
+  FiChevronUp,
+  FiChevronDown,
+  FiLogOut,
+} from "react-icons/fi";
+
+const ITEMS_PER_PAGE = 10;
 
 export default function StudentDashboard() {
-  // Store all attendance records fetched from Firestore
+  // ATTENDANCE DATA
   const [myAttendance, setMyAttendance] = useState([]);
-
-  // Show a loading state while we wait for Firestore data
   const [loading, setLoading] = useState(true);
 
-  // Track what the student has selected in each filter dropdown
+  // FILTERS
   const [filters, setFilters] = useState({
     courseCode: "",
     sessionType: "",
@@ -18,38 +23,49 @@ export default function StudentDashboard() {
     status: "",
   });
 
+  // SORTING
+  const [sortConfig, setSortConfig] = useState({
+    key: "date",
+    direction: "desc",
+  });
+
+  // PAGINATION
+  const [currentPage, setCurrentPage] = useState(1);
+
   const navigate = useNavigate();
 
-  // Grab the logged-in student's reg number from database
+  // CAPTURE STUDENT REG NUMBER
   const regNo = localStorage.getItem("studentRegNo");
 
   useEffect(() => {
-    // If there's no reg number, the student isn't logged in send them to login
+    // IF NO REG NUMBER, REDIRECT TO LOGIN
     if (!regNo) {
       navigate("/login");
       return;
     }
 
-    // Whenever a lecturer updates attendance, this updates automatically.
+    // REALTIME FIRESTORE LISTENER
     const unsub = onSnapshot(collection(db, "attendance"), (snapshot) => {
       const records = [];
 
       snapshot.docs.forEach((doc) => {
         const data = doc.data();
 
+        // FIND CURRENT LOGGED IN STUDENT
         const studentEntry = data.fullAttendanceList?.find(
           (s) =>
-            s.regNo?.trim().toUpperCase() === regNo.toUpperCase()
+            s.regNo?.trim().toUpperCase() ===
+            regNo.trim().toUpperCase()
         );
 
-        // If the student was part of this session, save the record
+        // SAVE ONLY THIS STUDENT'S RECORDS
         if (studentEntry) {
           records.push({
             id: doc.id,
-            courseCode: data.courseCode,
-            sessionType: data.sessionType,
-            date: data.date,
-            status: studentEntry.status, // either "Present" or "Absent"
+            courseCode: data.courseCode || "",
+            sessionType: data.sessionType || "",
+            date: data.date || "",
+            status: studentEntry.status || "",
           });
         }
       });
@@ -58,36 +74,90 @@ export default function StudentDashboard() {
       setLoading(false);
     });
 
-    // Clean up the listener when the component unmounts
     return () => unsub();
   }, [regNo, navigate]);
 
-  //the filters always reflect only what this student actually has
+  // UNIQUE FILTER VALUES
   const uniqueCourses = [
-    ...new Set(myAttendance.map((r) => r.courseCode).filter(Boolean)),
+    ...new Set(
+      myAttendance.map((r) => r.courseCode).filter(Boolean)
+    ),
   ];
 
   const uniqueTypes = [
-    ...new Set(myAttendance.map((r) => r.sessionType).filter(Boolean)),
+    ...new Set(
+      myAttendance.map((r) => r.sessionType).filter(Boolean)
+    ),
   ];
 
-  const uniqueDates = [
-    ...new Set(myAttendance.map((r) => r.date).filter(Boolean)),
-  ];
+  // FILTERING
+  let filteredAttendance = myAttendance.filter((item) => {
+    let matchesDate = true;
 
-  // Filter the records on the client side
-  // An empty string means "no filter applied for this field", then show everything.
-  const filteredAttendance = myAttendance.filter(
-    (item) =>
+    // HANDLE DATE FILTER
+    if (filters.date) {
+      const formattedDate = item.date
+        ?.split("/")
+        ?.reverse()
+        ?.join("-");
+
+      matchesDate = formattedDate === filters.date;
+    }
+
+    return (
       (filters.courseCode === "" ||
         item.courseCode === filters.courseCode) &&
       (filters.sessionType === "" ||
         item.sessionType === filters.sessionType) &&
-      (filters.date === "" || item.date === filters.date) &&
-      (filters.status === "" || item.status === filters.status)
+      matchesDate &&
+      (filters.status === "" ||
+        item.status === filters.status)
+    );
+  });
+
+  // SORTING
+  filteredAttendance.sort((a, b) => {
+    let valA = a[sortConfig.key];
+    let valB = b[sortConfig.key];
+
+    if (sortConfig.key === "date") {
+      const convertDate = (dateStr) => {
+        if (!dateStr) return new Date(0);
+
+        const [day, month, year] = dateStr.split("/");
+
+        return new Date(`${year}-${month}-${day}`);
+      };
+
+      valA = convertDate(valA);
+      valB = convertDate(valB);
+    } else {
+      valA = (valA || "").toString().toLowerCase();
+      valB = (valB || "").toString().toLowerCase();
+    }
+
+    if (valA < valB) {
+      return sortConfig.direction === "asc" ? -1 : 1;
+    }
+
+    if (valA > valB) {
+      return sortConfig.direction === "asc" ? 1 : -1;
+    }
+
+    return 0;
+  });
+
+  // PAGINATION
+  const totalPages = Math.ceil(
+    filteredAttendance.length / ITEMS_PER_PAGE
   );
 
-  // When any dropdown changes, update just that one filter field
+  const paginatedAttendance = filteredAttendance.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // HANDLE FILTER CHANGE
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
 
@@ -95,10 +165,12 @@ export default function StudentDashboard() {
       ...prev,
       [name]: value,
     }));
+
+    setCurrentPage(1);
   };
 
-  // Reset all filters back to "show everything"
-  const clearFilters = () =>
+  // CLEAR FILTERS
+  const clearFilters = () => {
     setFilters({
       courseCode: "",
       sessionType: "",
@@ -106,44 +178,75 @@ export default function StudentDashboard() {
       status: "",
     });
 
-  const isFiltered = Object.values(filters).some((v) => v !== "");
+    setCurrentPage(1);
+  };
+
+  // HANDLE SORT
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction:
+        prev.key === key && prev.direction === "asc"
+          ? "desc"
+          : "asc",
+    }));
+
+    setCurrentPage(1);
+  };
+
+  const isFiltered = Object.values(filters).some(
+    (v) => v !== ""
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 p-3 sm:p-6">
       <div className="max-w-5xl mx-auto">
 
-        {/* Top header bar with student reg number and logout */}
-        <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-teal-500 mb-6 sm:mb-8 p-4 sm:p-6 rounded-2xl shadow-sm">
+        {/* HEADER */}
+        <div className="mb-6 flex items-center justify-between bg-teal-500 text-white p-5 rounded-2xl shadow-md">
+
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-teal-800">
-              My Attendance
+            <h1 className="text-2xl font-medium tracking-tight">
+              AAS PORTAL
             </h1>
 
-            {/* Show the student who's currently logged in */}
-            <p className="text-white text-base sm:text-xl font-bold break-words">
+            <p className="font-medium text-teal-50 text-lg">
+              Student Attendance History
+            </p>
+
+            {/* DISPLAY CURRENT LOGGED IN STUDENT */}
+            <p className="font-medium text-black text-sm sm:text-base font-bold mt-1 break-words">
               {regNo}
             </p>
           </div>
 
-          {/* Sign out and go back to the main login page */}
+          {/* LOGOUT ICON */}
           <button
-            onClick={() => {
-              auth.signOut();
-              navigate("/login");
-            }}
-            className="bg-red-50 text-red-500 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-100 w-full sm:w-auto"
-          >
-            Logout
-          </button>
-        </header>
+            onClick={async () => {
+              try {
+                await auth.signOut();
 
-        {/* Mobile Filters */}
-        <div className="bg-white rounded-2xl shadow-sm p-4 mb-4 lg:hidden">
+                localStorage.removeItem("studentRegNo");
+
+                navigate("/login");
+              } catch (error) {
+                console.error("Logout Error:", error);
+              }
+            }}
+            className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-teal-600 transition"
+            title="Log Out"
+          >
+            <FiLogOut className="text-2xl text-white" />
+          </button>
+        </div>
+
+        {/* MOBILE FILTERS */}
+        <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 lg:hidden">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             {/* COURSE */}
             <div>
-              <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
+              <label className="block text-sm font-normal text-gray-600 uppercase tracking-wide mb-1">
                 Course
               </label>
 
@@ -151,7 +254,7 @@ export default function StudentDashboard() {
                 name="courseCode"
                 value={filters.courseCode}
                 onChange={handleFilterChange}
-                className="w-full rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-300"
+                className="w-full rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-sm"
               >
                 <option value="">All Courses</option>
 
@@ -165,7 +268,7 @@ export default function StudentDashboard() {
 
             {/* TYPE */}
             <div>
-              <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
+              <label className="block text-sm font-medium text-gray-600 uppercase tracking-wide mb-1">
                 Type
               </label>
 
@@ -173,7 +276,7 @@ export default function StudentDashboard() {
                 name="sessionType"
                 value={filters.sessionType}
                 onChange={handleFilterChange}
-                className="w-full rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-300"
+                className="w-full rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-sm"
               >
                 <option value="">All Types</option>
 
@@ -191,25 +294,18 @@ export default function StudentDashboard() {
                 Date
               </label>
 
-              <select
+              <input
+                type="date"
                 name="date"
                 value={filters.date}
                 onChange={handleFilterChange}
-                className="w-full rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-300"
-              >
-                <option value="">All Dates</option>
-
-                {uniqueDates.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+                className="w-full rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-sm"
+              />
             </div>
 
             {/* STATUS */}
             <div>
-              <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
+              <label className="block text-sm font-bold text-gray-600 uppercase tracking-wide mb-1">
                 Status
               </label>
 
@@ -217,7 +313,7 @@ export default function StudentDashboard() {
                 name="status"
                 value={filters.status}
                 onChange={handleFilterChange}
-                className="w-full rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-300"
+                className="w-full rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-sm"
               >
                 <option value="">All</option>
                 <option value="Present">Present</option>
@@ -226,94 +322,137 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          {/* Clear Filters */}
+          {/* CLEAR FILTERS */}
           {isFiltered && (
             <button
               onClick={clearFilters}
-              className="mt-4 w-full text-sm font-bold text-red-500 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg transition-colors"
+              className="mt-4 w-full text-sm font-bold text-red-500 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg"
             >
               ✕ Clear Filters
             </button>
           )}
         </div>
 
-        {/* Desktop Table */}
+        {/* TABLE */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
+
             <table className="w-full text-left min-w-[700px]">
 
+              {/* TABLE HEADER */}
               <thead className="hidden lg:table-header-group">
                 <tr>
 
-                  {/* COURSE filter */}
-                  <th className="px-4 py-3 border border-gray-300 bg-teal-500 w-1/4">
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
+                  {/* COURSE */}
+                  <th className="px-4 py-3 border border-gray-300 font-normal bg-teal-500">
+                    <label className="block text-xs font-bold text-white uppercase tracking-wide mb-1">
                       Course
                     </label>
 
-                    <select
-                      name="courseCode"
-                      value={filters.courseCode}
-                      onChange={handleFilterChange}
-                      className="w-full rounded-lg border border-teal-300 bg-teal-50 px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-white"
-                    >
-                      <option value="">All Courses</option>
+                    <div className="flex items-center gap-2">
+                      <select
+                        name="courseCode"
+                        value={filters.courseCode}
+                        onChange={handleFilterChange}
+                        className="flex-1 rounded-lg border border-teal-300 bg-teal-50 px-2 py-1.5 text-sm"
+                      >
+                        <option value="">All Courses</option>
 
-                      {uniqueCourses.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                        {uniqueCourses.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        onClick={() =>
+                          handleSort("courseCode")
+                        }
+                        className="text-white hover:text-teal-200"
+                      >
+                        {sortConfig.key ===
+                          "courseCode" &&
+                        sortConfig.direction === "asc" ? (
+                          <FiChevronUp size={18} />
+                        ) : (
+                          <FiChevronDown size={18} />
+                        )}
+                      </button>
+                    </div>
                   </th>
 
-                  {/* TYPE filter */}
-                  <th className="px-4 py-3 border border-gray-300 bg-teal-500 w-1/4">
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
+                  {/* TYPE */}
+                  <th className="px-4 py-3 border border-gray-300 font-normal bg-teal-500">
+                    <label className="block text-xs font-bold text-white uppercase tracking-wide mb-1">
                       Type
                     </label>
 
-                    <select
-                      name="sessionType"
-                      value={filters.sessionType}
-                      onChange={handleFilterChange}
-                      className="w-full rounded-lg border border-teal-300 bg-teal-50 px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-white"
-                    >
-                      <option value="">All Types</option>
+                    <div className="flex items-center gap-2">
+                      <select
+                        name="sessionType"
+                        value={filters.sessionType}
+                        onChange={handleFilterChange}
+                        className="flex-1 rounded-lg border border-teal-300 bg-teal-50 px-2 py-1.5 text-sm"
+                      >
+                        <option value="">All Types</option>
 
-                      {uniqueTypes.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
+                        {uniqueTypes.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        onClick={() =>
+                          handleSort("sessionType")
+                        }
+                        className="text-white hover:text-teal-200"
+                      >
+                        {sortConfig.key ===
+                          "sessionType" &&
+                        sortConfig.direction === "asc" ? (
+                          <FiChevronUp size={18} />
+                        ) : (
+                          <FiChevronDown size={18} />
+                        )}
+                      </button>
+                    </div>
                   </th>
 
-                  {/* DATE filter */}
-                  <th className="px-4 py-3 border border-gray-300 bg-teal-500 w-1/4">
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
+                  {/* DATE */}
+                  <th className="px-4 py-3 border border-gray-300 font-normal bg-teal-500">
+                    <label className="block text-xs font-bold text-white uppercase tracking-wide mb-1">
                       Date
                     </label>
 
-                    <select
-                      name="date"
-                      value={filters.date}
-                      onChange={handleFilterChange}
-                      className="w-full rounded-lg border border-teal-300 bg-teal-50 px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-white"
-                    >
-                      <option value="">All Dates</option>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        name="date"
+                        value={filters.date}
+                        onChange={handleFilterChange}
+                        className="flex-1 rounded-lg border border-teal-300 bg-teal-50 px-2 py-1.5 text-sm"
+                      />
 
-                      {uniqueDates.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
+                      <button
+                        onClick={() => handleSort("date")}
+                        className="text-white hover:text-teal-200"
+                      >
+                        {sortConfig.key === "date" &&
+                        sortConfig.direction === "asc" ? (
+                          <FiChevronUp size={18} />
+                        ) : (
+                          <FiChevronDown size={18} />
+                        )}
+                      </button>
+                    </div>
                   </th>
 
-                  {/* STATUS filter */}
-                  <th className="px-4 py-3 border border-gray-300 bg-teal-500 w-1/4">
-                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
+                  {/* STATUS */}
+                  <th className="px-4 py-3 border border-gray-300 font-normal bg-teal-500">
+                    <label className="block text-xs font-bold text-white uppercase tracking-wide mb-1">
                       Status
                     </label>
 
@@ -322,18 +461,31 @@ export default function StudentDashboard() {
                         name="status"
                         value={filters.status}
                         onChange={handleFilterChange}
-                        className="flex-1 rounded-lg border border-teal-300 bg-teal-50 px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-white"
+                        className="flex-1 rounded-lg border border-teal-300 bg-teal-50 px-2 py-1.5 text-sm"
                       >
                         <option value="">All</option>
                         <option value="Present">Present</option>
                         <option value="Absent">Absent</option>
                       </select>
 
-                      {/* Only show this when the student has filtered something */}
+                      <button
+                        onClick={() =>
+                          handleSort("status")
+                        }
+                        className="text-white hover:text-teal-200"
+                      >
+                        {sortConfig.key === "status" &&
+                        sortConfig.direction === "asc" ? (
+                          <FiChevronUp size={18} />
+                        ) : (
+                          <FiChevronDown size={18} />
+                        )}
+                      </button>
+
                       {isFiltered && (
                         <button
                           onClick={clearFilters}
-                          className="shrink-0 text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 px-2 py-1.5 rounded-lg transition-colors"
+                          className="shrink-0 text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 px-2 py-1.5 rounded-lg"
                         >
                           ✕ Clear
                         </button>
@@ -343,45 +495,44 @@ export default function StudentDashboard() {
                 </tr>
               </thead>
 
-              {/* Table body renders the filtered attendance rows */}
+              {/* TABLE BODY */}
               <tbody className="divide-y bg-teal-50 divide-gray-50">
 
-                {filteredAttendance.length > 0 ? (
-                  filteredAttendance.map((item) => (
+                {paginatedAttendance.length > 0 ? (
+                  paginatedAttendance.map((item) => (
                     <tr
                       key={item.id}
                       className="hover:bg-teal-50/30 transition-colors block lg:table-row border-b lg:border-none mb-3 lg:mb-0 bg-white lg:bg-transparent rounded-xl lg:rounded-none p-3 lg:p-0"
                     >
 
-                      <td className="border border-gray-300 lg:border-gray-300 px-4 sm:px-6 py-3 sm:py-4 text-gray-700 block lg:table-cell">
+                      <td className="border border-gray-300 px-4 sm:px-6 py-3 sm:py-4 text-gray-700 block lg:table-cell">
                         <span className="font-bold lg:hidden">
                           Course:
                         </span>{" "}
                         {item.courseCode}
                       </td>
 
-                      <td className="border border-gray-300 lg:border-gray-300 px-4 sm:px-6 py-3 sm:py-4 text-gray-500 block lg:table-cell">
+                      <td className="border border-gray-300 px-4 sm:px-6 py-3 sm:py-4 text-gray-500 block lg:table-cell">
                         <span className="font-bold lg:hidden">
                           Type:
                         </span>{" "}
                         {item.sessionType}
                       </td>
 
-                      <td className="border border-gray-300 lg:border-gray-300 px-4 sm:px-6 py-3 sm:py-4 text-gray-500 block lg:table-cell">
+                      <td className="border border-gray-300 px-4 sm:px-6 py-3 sm:py-4 text-gray-500 block lg:table-cell">
                         <span className="font-bold lg:hidden">
                           Date:
                         </span>{" "}
                         {item.date}
                       </td>
 
-                      <td className="border border-gray-300 lg:border-gray-300 px-4 sm:px-6 py-3 sm:py-4 block lg:table-cell">
-                        <span className="font-bold lg:hidden mr-2">
+                      <td className="border border-gray-300 px-4 sm:px-6 py-3 sm:py-4 block lg:table-cell">
+                        <span className="font-bold lg:hidden">
                           Status:
-                        </span>
+                        </span>{" "}
 
-                        {/* Green badge for present, red badge for absent */}
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          className={`px-3 py-1 rounded-full text-xs font-medium ${
                             item.status === "Present"
                               ? "bg-green-200 text-teal-600"
                               : "bg-red-200 text-red-600"
@@ -393,7 +544,6 @@ export default function StudentDashboard() {
                     </tr>
                   ))
                 ) : (
-                  // Show a helpful message depending on why the table is empty
                   <tr>
                     <td
                       colSpan="4"
@@ -410,8 +560,41 @@ export default function StudentDashboard() {
               </tbody>
             </table>
           </div>
-        </div>
 
+          {/* PAGINATION */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t bg-white">
+
+              <button
+                onClick={() =>
+                  setCurrentPage((p) =>
+                    Math.max(1, p - 1)
+                  )
+                }
+                disabled={currentPage === 1}
+                className="px-5 py-2 border rounded-lg disabled:opacity-50 hover:bg-gray-100 transition"
+              >
+                Previous
+              </button>
+
+              <span className="text-sm text-gray-600 font-medium">
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <button
+                onClick={() =>
+                  setCurrentPage((p) =>
+                    Math.min(totalPages, p + 1)
+                  )
+                }
+                disabled={currentPage === totalPages}
+                className="px-5 py-2 border rounded-lg disabled:opacity-50 hover:bg-gray-100 transition"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
