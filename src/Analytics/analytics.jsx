@@ -28,6 +28,41 @@ function parseAttendanceDate(value) {
   return Number.isNaN(altDate.getTime()) ? null : altDate;
 }
 
+function normalizeCourseCode(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function normalizeStudentName(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+}
+
+function isKnownStudentName(value) {
+  const normalized = normalizeStudentName(value);
+  return normalized && normalized !== "UNKNOWN";
+}
+
+function getStudentName(data) {
+  return (
+    data.studentName ||
+    data.displayName ||
+    `${data.name || ""} ${data.surname || ""}`.trim()
+  );
+}
+
+function mergeStudentData(existing, next) {
+  if (!existing) return next;
+
+  return {
+    ...existing,
+    ...Object.fromEntries(
+      Object.entries(next).filter(([, value]) => value !== "")
+    ),
+  };
+}
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   const total = (payload[0]?.value ?? 0) + (payload[1]?.value ?? 0);
@@ -64,23 +99,54 @@ export default function Analytics() {
 
   useEffect(() => {
     return onSnapshot(collection(db, "courses"), (snap) => {
-      setCourses(snap.docs.map(d => ({
-        id: d.id, 
-        courseName: d.data().courseName || d.id,
-      })));
+      const courseMap = new Map();
+
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const id = data.courseCode || data.id || d.id;
+        const courseKey = normalizeCourseCode(id);
+        if (!courseKey) return;
+
+        courseMap.set(courseKey, {
+          id,
+          courseKey,
+          courseName: data.courseName || data.name || id,
+        });
+      });
+
+      setCourses([...courseMap.values()]);
     });
   }, []);
 
   useEffect(() => {
     return onSnapshot(collection(db, "students"), (snap) => {
-      setStudents(snap.docs.map(d => ({
-        id: d.id,
-        regNo: d.data().regNo || d.id,
-        name: `${d.data().name || ""} ${d.data().surname || ""}`.trim(),
-        program: d.data().program || "N/A", 
-        coursesStr: d.data().courses || "",
-        years: String(d.data().years || d.data().yearss || ""),
-      })));
+      const studentMap = new Map();
+
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const name = getStudentName(data);
+        if (!isKnownStudentName(name)) return;
+
+        const nameKey = normalizeStudentName(name);
+
+        const student = {
+          id: d.id,
+          regNo: data.regno || data.regNo || data.registrationNumber || "",
+          name,
+          nameKey,
+          program: data.program || "",
+          department: data.department || "",
+          coursesStr: data.courses || data.assignedCourses || "",
+          years: String(data.years || data.yearss || data.year || ""),
+        };
+
+        studentMap.set(
+          nameKey,
+          mergeStudentData(studentMap.get(nameKey), student)
+        );
+      });
+
+      setStudents([...studentMap.values()]);
     });
   }, []);
 
@@ -93,102 +159,138 @@ export default function Analytics() {
   }, []);
 
 
-  const stuInfobyRegNo = useMemo(() => {
-    return Object.fromEntries(students.map(s => [s.regNo, { ...s }]));
+  const stuInfobyName = useMemo(() => {
+    return Object.fromEntries(students.map(s => [s.nameKey, { ...s }]));
   }, [students]);
 
 
   const flEntrys = useMemo(() => {
     const rows = [];
+    const seen = new Set();
+
     attendance.forEach(doc => {
       const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
       list.forEach(entry => {
+        const studentName = getStudentName(entry);
+        if (!isKnownStudentName(studentName)) return;
+
+        const nameKey = normalizeStudentName(studentName);
+
+        const courseCode = doc.courseCode || "";
+        const sessionType = doc.sessionType || "";
+        const date = doc.date || "";
+        const rowKey = [
+          normalizeCourseCode(courseCode),
+          date,
+          sessionType,
+          nameKey,
+        ].join("|");
+
+        const status = entry.status || "";
+        if (!status) return;
+
+        if (seen.has(rowKey)) return;
+        seen.add(rowKey);
+
         rows.push({
-          courseCode: doc.courseCode,
+          courseCode,
           dateObject: parseAttendanceDate(doc.timestamp || doc.date),
-          date: doc.date || "Unknown",
-          regNo: entry.regNo || "",
-          status: entry.status || "Absent",
+          date,
+          name: studentName,
+          nameKey,
+          sessionType,
+          status,
         });
       });
     });
+
     return rows;
   }, [attendance]);
 
 
   const stuAttData = useMemo(() => {
     const map = {};
-    attendance.forEach(doc => {
-      const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
-      list.forEach(entry => {
-        const regNo = entry.regNo;
-        if (!regNo) return;
-        const row = map[regNo] ?? { regNo, present: 0, absent: 0, total: 0 };
 
-        // then we need to update the number of either preent or absent 
-        if (entry.status === "Present") row.present += 1;
-        else row.absent += 1;
-        row.total += 1;
-        map[regNo] = row;
-      });
+    flEntrys.forEach(entry => {
+      const row = map[entry.nameKey] ?? {
+        name: entry.name,
+        nameKey: entry.nameKey,
+        present: 0,
+        absent: 0,
+        total: 0,
+      };
+
+      if (entry.status === "Present") row.present += 1;
+      else row.absent += 1;
+      row.total += 1;
+      map[entry.nameKey] = row;
     });
+
     return Object.values(map).map(row => {
-      const s = stuInfobyRegNo
-  [row.regNo] || {};
+      const s = stuInfobyName[row.nameKey] || {};
       const rate = row.total ? attpercentage(row.present, row.total) : 0;
+
       return { 
         ...row, 
         ...s, 
+        regNo: s.regNo || "",
+        program: s.program || "",
+        years: s.years || "",
         rate, 
-        displayName: s.name && s.name.length > 0 ? s.name : row.regNo,
+        displayName: s.name || row.name,
       };
     });
-  }, [attendance, stuInfobyRegNo
-
-  ]);
+  }, [flEntrys, stuInfobyName]);
 
   const atRiskStudents = useMemo(() => {
     return stuAttData
-      .filter(s => {
-        return s.absent >=  0;
-      })
-      .sort((a, b) => b.absent - a.absent);
+      .filter(s => s.rate < 50)
+      .sort((a, b) => a.rate - b.rate || b.absent - a.absent);
   }, [stuAttData]);
 
   const courseAnalytics = useMemo(() => {
     const courseMap = {};
     
     courses.forEach(c => {
-      courseMap[c.id.trim().toUpperCase()] = {
+      courseMap[c.courseKey] = {
         courseCode: c.id,
+        courseKey: c.courseKey,
         totalRecords: 0,
         absent: 0,
         present: 0,
       };
     });
 
-    attendance.forEach(doc => {
-      const code = doc.courseCode?.trim().toUpperCase();
-      if (!code || !courseMap[code]) return; 
+    flEntrys.forEach(entry => {
+      const code = normalizeCourseCode(entry.courseCode);
+      if (!code) return;
 
-      const list = Array.isArray(doc.fullAttendanceList) ? doc.fullAttendanceList : [];
-      courseMap[code].totalRecords += list.length;
-      courseMap[code].present += list.filter(e => e.status === "Present").length;
-      courseMap[code].absent += list.filter(e => e.status !== "Present").length;
+      if (!courseMap[code]) {
+        courseMap[code] = {
+          courseCode: entry.courseCode,
+          courseKey: code,
+          totalRecords: 0,
+          absent: 0,
+          present: 0,
+        };
+      }
+
+      courseMap[code].totalRecords += 1;
+      if (entry.status === "Present") courseMap[code].present += 1;
+      else courseMap[code].absent += 1;
     });
 
     return Object.values(courseMap)
       .map(c => ({ ...c, avgAttendance: c.totalRecords > 0 ? attpercentage(c.present, c.totalRecords) : 0 }))
       .sort((a, b) => b.avgAttendance - a.avgAttendance);
-  }, [attendance, courses]);
+  }, [flEntrys, courses]);
 
   const departmentComparison = useMemo(() => {
-    const validDepts = ["Computer Science", "History"];
     const groups = {};
     
     stuAttData.forEach(student => {
       const label = student.department?.trim();
-      if (!label || !validDepts.includes(label)) return;
+      if (!label) return;
 
       const row = groups[label] ?? { label, present: 0, absent: 0, total: 0 };
       row.present += student.present || 0;
@@ -204,17 +306,29 @@ export default function Analytics() {
 
   const hourlyAttendanceData = useMemo(() => {
     const hours = {};
-    for (let i = 6; i <= 18; i++) hours[i] = { hour: `${i}:00`, present: 0, absent: 0, total: 0 };
+
     flEntrys.forEach(entry => {
       const date = entry.dateObject;
-      const hour = date ? date.getHours() : (Math.floor(Math.random() * 13) + 6);
-      if (hours[hour]) {
-        hours[hour].total++;
-        if (entry.status === "Present") hours[hour].present++;
-        else hours[hour].absent++;
+      if (!date) return;
+
+      const hour = date.getHours();
+      if (!hours[hour]) {
+        hours[hour] = {
+          hour: `${hour}:00`,
+          present: 0,
+          absent: 0,
+          total: 0,
+        };
       }
+
+      hours[hour].total++;
+      if (entry.status === "Present") hours[hour].present++;
+      else hours[hour].absent++;
     });
-    return Object.values(hours);
+
+    return Object.values(hours).sort((a, b) => {
+      return Number(a.hour.split(":")[0]) - Number(b.hour.split(":")[0]);
+    });
   }, [flEntrys]);
 
   const weekdayAttendanceData = useMemo(() => {
@@ -234,7 +348,9 @@ export default function Analytics() {
         weekdays[dayIndex].total++;
       }
     });
-    return weekdays.map(d => ({ ...d, rate: d.total > 0 ? attpercentage(d.present, d.total) : 0 }));
+    return weekdays
+      .filter(d => d.total > 0)
+      .map(d => ({ ...d, rate: attpercentage(d.present, d.total) }));
   }, [flEntrys]);
 
   const timeOfDayAnalytics = useMemo(() => {
@@ -253,7 +369,7 @@ export default function Analytics() {
     return [
       { ...morning, rate: morning.total > 0 ? attpercentage(morning.present, morning.total) : 0 },
       { ...afternoon, rate: afternoon.total > 0 ? attpercentage(afternoon.present, afternoon.total) : 0 },
-    ];
+    ].filter(period => period.total > 0);
   }, [flEntrys]);
 
   const hasChart = flEntrys.length > 0;
@@ -393,8 +509,8 @@ export default function Analytics() {
                   </thead>
                   <tbody>
                     {courseAnalytics.length > 0 ? (
-                      courseAnalytics.map((course, idx) => (
-                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                      courseAnalytics.map((course) => (
+                        <tr key={course.courseKey} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="px-4 py-3 font-medium text-gray-800">{course.courseCode}</td>
                           <td className="px-4 py-3 text-gray-600">{course.totalRecords}</td>
                           <td className="px-4 py-3 text-green-600 font-semibold">{course.present}</td>
@@ -427,7 +543,7 @@ export default function Analytics() {
                 {departmentComparison.length > 0 ? (
                   <div className="space-y-2">
                     {departmentComparison.map((dept, idx) => (
-                      <div key={idx} className="flex items-center gap-3">
+                      <div key={dept.label} className="flex items-center gap-3">
                         <div className="w-6 h-6 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-bold">
                           {idx + 1}
                         </div>
@@ -484,8 +600,8 @@ export default function Analytics() {
                       </tr>
                     </thead>
                     <tbody>
-                      {atRiskStudents.slice(0, 25).map((student, idx) => (
-                        <tr key={idx} className="border-b border-gray-100 hover:bg-teal-50">
+                      {atRiskStudents.map((student) => (
+                        <tr key={student.nameKey} className="border-b border-gray-100 hover:bg-teal-50">
                           <td className="px-4 py-3 font-medium text-gray-800">{student.displayName}</td>
                           <td className="px-4 py-3 text-gray-600">{student.regNo}</td>
                           <td className="px-4 py-3 text-gray-600">{student.program}</td>
@@ -500,7 +616,7 @@ export default function Analytics() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
-                  <p>No students with more than 10 absences found.</p>
+                  <p>No students below 50% attendance.</p>
                 </div>
               )}
             </div>
