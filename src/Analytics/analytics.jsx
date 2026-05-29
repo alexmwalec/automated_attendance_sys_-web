@@ -79,17 +79,49 @@ function mergeStudentData(existing, next) {
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
-  const total = (payload[0]?.value ?? 0) + (payload[1]?.value ?? 0);
+  const row = payload[0]?.payload || {};
+  const hasBreakdown =
+    row.present !== undefined ||
+    row.absent !== undefined ||
+    row.total !== undefined;
+  const present = row.present ?? payload.find((p) => p.dataKey === "present")?.value ?? 0;
+  const absent = row.absent ?? payload.find((p) => p.dataKey === "absent")?.value ?? 0;
+  const total = row.total ?? present + absent;
+  const rate = row.rate ?? (total > 0 ? attpercentage(present, total) : 0);
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-sm">
       <p className="font-semibold text-gray-700 mb-1">{label}</p>
-      {payload.map((p) => (
-        <p key={p.name} style={{ color: p.fill }} className="flex justify-between gap-4">
-          <span>{p.name}</span>
-          <span className="font-bold">{p.value} ({total > 0 ? attpercentage(p.value, total) : 0}%)</span>
+
+      {!hasBreakdown ? (
+        payload.map((p) => (
+          <p key={p.name} style={{ color: p.fill || p.stroke }} className="flex justify-between gap-4">
+            <span>{p.name}</span>
+            <span className="font-bold">{p.value}%</span>
+          </p>
+        ))
+      ) : (
+        <>
+          {typeof row.rate === "number" && (
+        <p className="flex justify-between gap-4 text-teal-600">
+          <span>Attendance</span>
+          <span className="font-bold">{rate}%</span>
         </p>
-      ))}
-      <p className="text-gray-400 text-xs mt-1 border-t pt-1">Total: {total}</p>
+          )}
+
+          <p className="flex justify-between gap-4" style={{ color: PRESENT_COLOR }}>
+            <span>Present</span>
+            <span className="font-bold">{present}</span>
+          </p>
+
+          <p className="flex justify-between gap-4" style={{ color: ABSENT_COLOR }}>
+            <span>Absent</span>
+            <span className="font-bold">{absent}</span>
+          </p>
+
+          <p className="text-gray-400 text-xs mt-1 border-t pt-1">Total: {total}</p>
+        </>
+      )}
     </div>
   );
 };
@@ -130,6 +162,7 @@ export default function Analytics() {
           id,
           courseKey,
           courseName: data.courseName || data.name || id,
+          department: data.department || "Unknown",
         });
       });
 
@@ -383,16 +416,17 @@ export default function Analytics() {
       if (!label) return;
 
       const row = groups[label] ?? { label, present: 0, absent: 0, total: 0 };
-      row.present += student.present || 0;
-      row.absent += student.absent || 0;
-      row.total += student.total || 0;
+      if (entry.status === "Present") row.present += 1;
+      else row.absent += 1;
+      row.total += 1;
       groups[label] = row;
     });
+
     return Object.values(groups)
       .filter(g => g.total > 0)
       .map(g => ({ ...g, rate: attpercentage(g.present, g.total) }))
       .sort((a, b) => b.rate - a.rate);
-  }, [stuAttData]);
+  }, [dashboardEntries, courseInfoById]);
 
   // Group attendance by hour of day for the hourly bar chart.
   const hourlyAttendanceData = useMemo(() => {
@@ -684,7 +718,7 @@ export default function Analytics() {
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-700 text-sm mb-4">Department Comparison</h3>
+                <h3 className="font-bold text-gray-700 text-lg mb-4">Department Comparison</h3>
                 {departmentComparison.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart data={departmentComparison.map(d => ({ name: d.label, rate: d.rate }))}>
