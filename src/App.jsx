@@ -4,6 +4,7 @@ import Analytics from "./Analytics/analytics";
 import Assign from "./Assign/assign";
 import Dashboard from "./Dashboard/Dashboard";
 import Login from "./Login/Login";
+import ChangePassword from "./ChangePassword/ChangePassword";
 import LecturerSessions from "./LecturerSessions";
 import TestFirebase from "./Test/firebaseTest";
 import StudentAuth from "./StudentAuth";
@@ -21,6 +22,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/lecturer-sessions" element={<LecturerSessions />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/change-password" element={<ChangePassword />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
       </Routes>
     </Router>

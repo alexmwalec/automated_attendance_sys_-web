@@ -75,6 +75,13 @@ function normalizeCourseList(value) {
     .filter(Boolean);
 }
 
+function normalizeProgram(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
 
@@ -255,25 +262,36 @@ export default function Dashboard({ analyticsMode = false }) {
   useEffect(() => {
     return onSnapshot(collection(db, "programs"), (snap) => {
       if (!snap.empty) {
-        setPrograms(
-          snap.docs.map((d) => ({
-            id: d.id,
-            name: d.data().name || d.id,
-          }))
-        );
-      } else {
-        const uniqueProgs = [
-          ...new Set(
-            students.map((s) => s.program).filter(Boolean)
-          ),
-        ];
+        const programMap = new Map();
 
-        setPrograms(
-          uniqueProgs.map((p) => ({
-            id: p,
-            name: p,
-          }))
-        );
+        snap.docs.forEach((d) => {
+          const name = d.data().name || d.id;
+          const key = normalizeProgram(name);
+          if (!key) return;
+
+          programMap.set(key, {
+            id: d.id,
+            name,
+            value: key,
+          });
+        });
+
+        setPrograms([...programMap.values()]);
+      } else {
+        const programMap = new Map();
+
+        students.forEach((s) => {
+          const key = normalizeProgram(s.program);
+          if (!key || programMap.has(key)) return;
+
+          programMap.set(key, {
+            id: s.program,
+            name: s.program,
+            value: key,
+          });
+        });
+
+        setPrograms([...programMap.values()]);
       }
     });
   }, [students]);
@@ -321,7 +339,10 @@ export default function Dashboard({ analyticsMode = false }) {
         if (selDept && s.department !== selDept)
           return false;
 
-        if (selProgram && s.program !== selProgram)
+        if (
+          selProgram &&
+          normalizeProgram(s.program) !== selProgram
+        )
           return false;
 
         if (
@@ -401,7 +422,7 @@ export default function Dashboard({ analyticsMode = false }) {
 
         if (
           selProgram &&
-          sInfo?.program !== selProgram
+          normalizeProgram(sInfo?.program) !== selProgram
         )
           return;
 
@@ -691,7 +712,7 @@ export default function Dashboard({ analyticsMode = false }) {
                 <option value="">All Programs</option>
 
                 {programs.map((p) => (
-                  <option key={p.id} value={p.name}>
+                  <option key={p.value || p.id} value={p.value}>
                     {p.name}
                   </option>
                 ))}
