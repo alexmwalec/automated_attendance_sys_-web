@@ -85,26 +85,28 @@ function normalizeProgram(value) {
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
 
-  const total =
-    (payload[0]?.value ?? 0) + (payload[1]?.value ?? 0);
+  const row = payload[0]?.payload || {};
+  const present = row.Present ?? 0;
+  const absent = row.Absent ?? 0;
+  const total = present + absent;
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-sm">
-      <p className="font-semibold text-gray-700 mb-1">{label}</p>
+      <p className="font-semibold text-gray-700 mb-1">Date: {label}</p>
 
-      {payload.map((p) => (
-        <p
-          key={p.name}
-          style={{ color: p.fill || p.stroke }}
-          className="flex justify-between gap-4"
-        >
-          <span>{p.name}</span>
+      <p className="flex justify-between gap-4" style={{ color: PRESENT_COLOR }}>
+        <span>Present</span>
+        <span className="font-bold">
+          {present} ({pct(present, total)}%)
+        </span>
+      </p>
 
-          <span className="font-bold">
-            {p.value} ({pct(p.value, total)}%)
-          </span>
-        </p>
-      ))}
+      <p className="flex justify-between gap-4" style={{ color: ABSENT_COLOR }}>
+        <span>Absent</span>
+        <span className="font-bold">
+          {absent} ({pct(absent, total)}%)
+        </span>
+      </p>
 
       <p className="text-gray-400 text-xs mt-1 border-t pt-1">
         Total: {total}
@@ -628,7 +630,7 @@ export default function Dashboard({ analyticsMode = false }) {
             {/* Title */}
             <div className="flex-1 ml-3">
               <h1 className="text-white text-lg sm:text-xl tracking-tight font-bold">
-                Attendance Insights
+                Dashboard
               </h1>
 
               
@@ -836,13 +838,13 @@ export default function Dashboard({ analyticsMode = false }) {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 <StatCard
-                  label="Selected Entries"
+                  label="Total Selected Entries"
                   value={flatEntries.length}
                   accent={PRESENT_COLOR}
                 />
 
                 <StatCard
-                  label="Present (Selected)"
+                  label="Present (based on selected)"
                   value={stats.present}
                   accent={PRESENT_COLOR}
                 />

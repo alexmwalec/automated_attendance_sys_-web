@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useNavigate } from "react-router-dom";
-import { FiUser, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -11,7 +11,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [loading, setLoading] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
@@ -39,11 +38,11 @@ export default function Login() {
           navigate("/lecturer-sessions");
         } else {
           await signOut(auth);
-          setFeedback({ type: "error", message: "Access Denied: Unrecognized user role." });
+          setFeedback({ type: "error", message: "Not recognized." });
         }
       } else {
         await signOut(auth);
-        setFeedback({ type: "error", message: "User profile not found in system." });
+        setFeedback({ type: "error", message: "Use a valid account." });
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -52,46 +51,12 @@ export default function Login() {
         err.code === "auth/wrong-password" ||
         err.code === "auth/invalid-credential"
       ) {
-        setFeedback({ type: "error", message: "Invalid email or password." });
+        setFeedback({ type: "error", message: "Invalid credentials." });
       } else {
         setFeedback({ type: "error", message: "An error occurred. Please try again." });
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    const trimmedEmail = email.trim().toLowerCase();
-    setFeedback({ type: "", message: "" });
-
-    if (!trimmedEmail) {
-      setFeedback({ type: "error", message: "Enter your email address first." });
-      return;
-    }
-
-    try {
-      setResetLoading(true);
-      await sendPasswordResetEmail(auth, trimmedEmail, {
-        url: `${window.location.origin}/change-password`,
-        handleCodeInApp: true,
-      });
-      setFeedback({
-        type: "success",
-        message: "If this email is registered, a password reset email will arrive shortly.",
-      });
-    } catch (err) {
-      console.error("Password reset error:", err);
-      if (err.code === "auth/invalid-email") {
-        setFeedback({ type: "error", message: "Enter a valid email address." });
-      } else {
-        setFeedback({
-          type: "error",
-          message: "Unable to send password reset email. Please try again.",
-        });
-      }
-    } finally {
-      setResetLoading(false);
     }
   };
 
@@ -120,7 +85,20 @@ export default function Login() {
           {/* Email */}
           <div className="relative">
             <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
-              <FiUser size={17} />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="h-[17px] w-[17px]"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"
+                />
+              </svg>
             </span>
             <label htmlFor="email" className="sr-only">Email Address</label>
             <input
@@ -138,7 +116,20 @@ export default function Login() {
           {/* Password */}
           <div className="relative">
             <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none">
-              <FiLock size={17} />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="h-[17px] w-[17px]"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+                />
+              </svg>
             </span>
             <label htmlFor="password" className="sr-only">Password</label>
             <input
@@ -149,7 +140,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
               required
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 pl-10 pr-10 py-3 text-sm text-slate-700 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 pl-10 pr-10 py-3 text-sm text-slate-700 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
             />
             <button
               type="button"
@@ -160,7 +151,7 @@ export default function Login() {
             </button>
           </div>
 
-          {/* Submit */}
+          {/* // submission */}
           <button
             type="submit"
             disabled={loading}
@@ -174,14 +165,6 @@ export default function Login() {
             )}
           </button>
 
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            disabled={resetLoading}
-            className="block w-full text-center text-sm font-medium text-teal-700 hover:text-teal-900 hover:underline disabled:text-slate-400 disabled:no-underline"
-          >
-            {resetLoading ? "Sending reset email..." : "Forgot password?"}
-          </button>
         </form>
       </div>
     </div>
