@@ -416,9 +416,9 @@ export default function Analytics() {
       if (!label) return;
 
       const row = groups[label] ?? { label, present: 0, absent: 0, total: 0 };
-      if (entry.status === "Present") row.present += 1;
-      else row.absent += 1;
-      row.total += 1;
+      row.present += student.present || 0;
+      row.absent += student.absent || 0;
+      row.total += student.total || (student.present || 0) + (student.absent || 0);
       groups[label] = row;
     });
 
@@ -426,7 +426,7 @@ export default function Analytics() {
       .filter(g => g.total > 0)
       .map(g => ({ ...g, rate: attpercentage(g.present, g.total) }))
       .sort((a, b) => b.rate - a.rate);
-  }, [dashboardEntries, courseInfoById]);
+  }, [stuAttData]);
 
   // Group attendance by hour of day for the hourly bar chart.
   const hourlyAttendanceData = useMemo(() => {
