@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  BarChart, Bar, LineChart, Line, 
+  BarChart, Bar, LineChart, Line,
   XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   ResponsiveContainer,
 } from "recharts";
@@ -11,18 +11,21 @@ import Sidebar from "../components/sidebar";
 
 const ABSENT_COLOR = "#1306069d";
 const PRESENT_COLOR = "#10b981";
+const TABLE_PAGE_SIZE = 10;
 
+// Converts raw counts into the rounded percentage used across charts and tables.
 function attpercentage(a, total) {
   return total === 0 ? 0 : Math.round((a / total) * 100);
 }
 
+// Attendance dates may come from Firestore timestamps or stored string values.
 function parseAttendanceDate(value) {
   if (!value) return null;
   if (typeof value.toDate === 'function') return value.toDate();
-  
+
   const asDate = new Date(value);
   if (!Number.isNaN(asDate.getTime())) return asDate;
-  
+
   const normalized = String(value).replace(/\s+/g, "T");
   const altDate = new Date(normalized);
   return Number.isNaN(altDate.getTime()) ? null : altDate;
@@ -39,6 +42,16 @@ function normalizeStudentName(value) {
     .toUpperCase();
 }
 
+function normalizeProgram(value) {
+  return String(value || "").trim();
+}
+
+// Keeps unknown/missing years at the bottom while sorting real year values.
+function getYearSortValue(value) {
+  const match = String(value || "").match(/\d+/);
+  return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
+}
+
 function isKnownStudentName(value) {
   const normalized = normalizeStudentName(value);
   return normalized && normalized !== "UNKNOWN";
@@ -52,6 +65,7 @@ function getStudentName(data) {
   );
 }
 
+// Prefer newer non-empty fields when duplicated student records share a name.
 function mergeStudentData(existing, next) {
   if (!existing) return next;
 
@@ -96,7 +110,12 @@ export default function Analytics() {
   const [attendance, setAttendance] = useState([]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [atRiskProgramFilter, setAtRiskProgramFilter] = useState("");
+  const [atRiskSort, setAtRiskSort] = useState("risk");
+  const [atRiskPage, setAtRiskPage] = useState(1);
+  const [coursePage, setCoursePage] = useState(1);
 
+  // Load course definitions so courses with no attendance still appear in analytics.
   useEffect(() => {
     return onSnapshot(collection(db, "courses"), (snap) => {
       const courseMap = new Map();
@@ -118,6 +137,7 @@ export default function Analytics() {
     });
   }, []);
 
+  // Build a student lookup keyed by normalized name for joining attendance entries.
   useEffect(() => {
     return onSnapshot(collection(db, "students"), (snap) => {
       const studentMap = new Map();
@@ -150,6 +170,7 @@ export default function Analytics() {
     });
   }, []);
 
+  // Attendance records drive the charts, risk table, and course summaries.
   useEffect(() => {
     setLoading(true);
     return onSnapshot(collection(db, "attendance"), (snap) => {
@@ -159,11 +180,13 @@ export default function Analytics() {
   }, []);
 
 
+  // Fast lookup for adding student metadata to attendance-derived rows.
   const stuInfobyName = useMemo(() => {
     return Object.fromEntries(students.map(s => [s.nameKey, { ...s }]));
   }, [students]);
 
 
+  // Flatten fullAttendanceList entries and remove duplicate student/session rows.
   const flEntrys = useMemo(() => {
     const rows = [];
     const seen = new Set();
@@ -208,6 +231,7 @@ export default function Analytics() {
   }, [attendance]);
 
 
+  // Aggregate each student's present/absent totals, then attach profile details.
   const stuAttData = useMemo(() => {
     const map = {};
 
@@ -230,27 +254,29 @@ export default function Analytics() {
       const s = stuInfobyName[row.nameKey] || {};
       const rate = row.total ? attpercentage(row.present, row.total) : 0;
 
-      return { 
-        ...row, 
-        ...s, 
+      return {
+        ...row,
+        ...s,
         regNo: s.regNo || "",
         program: s.program || "",
         years: s.years || "",
-        rate, 
+        rate,
         displayName: s.name || row.name,
       };
     });
   }, [flEntrys, stuInfobyName]);
 
+  // Students below 50% attendance are considered at risk.
   const atRiskStudents = useMemo(() => {
     return stuAttData
       .filter(s => s.rate < 50)
       .sort((a, b) => a.rate - b.rate || b.absent - a.absent);
   }, [stuAttData]);
 
+  // Summarize attendance totals per course without changing the raw attendance data.
   const courseAnalytics = useMemo(() => {
     const courseMap = {};
-    
+
     courses.forEach(c => {
       courseMap[c.courseKey] = {
         courseCode: c.id,
@@ -285,9 +311,73 @@ export default function Analytics() {
       .sort((a, b) => b.avgAttendance - a.avgAttendance);
   }, [flEntrys, courses]);
 
+  // Program options come from the current at-risk set.
+  const atRiskPrograms = useMemo(() => {
+    return [...new Set(
+      atRiskStudents
+        .map(student => normalizeProgram(student.program))
+        .filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b));
+  }, [atRiskStudents]);
+
+  // Apply the selected program filter and table sort after risk logic is calculated.
+  const filteredAtRiskStudents = useMemo(() => {
+    const rows = atRiskStudents.filter(student => {
+      if (!atRiskProgramFilter) return true;
+      return normalizeProgram(student.program) === atRiskProgramFilter;
+    });
+
+    if (atRiskSort === "name-asc" || atRiskSort === "name-desc") {
+      return [...rows].sort((a, b) => {
+        const comparison = (a.displayName || "").localeCompare(b.displayName || "");
+        return atRiskSort === "name-asc" ? comparison : -comparison;
+      });
+    }
+
+    if (atRiskSort === "year-asc" || atRiskSort === "year-desc") {
+      return [...rows].sort((a, b) => {
+        const yearA = getYearSortValue(a.years);
+        const yearB = getYearSortValue(b.years);
+
+        if (yearA === Number.MAX_SAFE_INTEGER && yearB !== Number.MAX_SAFE_INTEGER) return 1;
+        if (yearB === Number.MAX_SAFE_INTEGER && yearA !== Number.MAX_SAFE_INTEGER) return -1;
+        if (yearA !== yearB) {
+          return atRiskSort === "year-asc" ? yearA - yearB : yearB - yearA;
+        }
+
+        return (a.displayName || "").localeCompare(b.displayName || "");
+      });
+    }
+
+    return rows;
+  }, [atRiskStudents, atRiskProgramFilter, atRiskSort]);
+
+  // Paginate the two long tables at 10 rows so they stay readable as data grows.
+  const atRiskTotalPages = Math.max(1, Math.ceil(filteredAtRiskStudents.length / TABLE_PAGE_SIZE));
+  const paginatedAtRiskStudents = useMemo(() => {
+    const start = (atRiskPage - 1) * TABLE_PAGE_SIZE;
+    return filteredAtRiskStudents.slice(start, start + TABLE_PAGE_SIZE);
+  }, [filteredAtRiskStudents, atRiskPage]);
+
+  const courseTotalPages = Math.max(1, Math.ceil(courseAnalytics.length / TABLE_PAGE_SIZE));
+  const paginatedCourseAnalytics = useMemo(() => {
+    const start = (coursePage - 1) * TABLE_PAGE_SIZE;
+    return courseAnalytics.slice(start, start + TABLE_PAGE_SIZE);
+  }, [courseAnalytics, coursePage]);
+
+  // Clamp current pages when filters or live data reduce the total row count.
+  useEffect(() => {
+    setAtRiskPage(page => Math.min(page, atRiskTotalPages));
+  }, [atRiskTotalPages]);
+
+  useEffect(() => {
+    setCoursePage(page => Math.min(page, courseTotalPages));
+  }, [courseTotalPages]);
+
+  // Group student attendance into department-level performance.
   const departmentComparison = useMemo(() => {
     const groups = {};
-    
+
     stuAttData.forEach(student => {
       const label = student.department?.trim();
       if (!label) return;
@@ -304,6 +394,7 @@ export default function Analytics() {
       .sort((a, b) => b.rate - a.rate);
   }, [stuAttData]);
 
+  // Group attendance by hour of day for the hourly bar chart.
   const hourlyAttendanceData = useMemo(() => {
     const hours = {};
 
@@ -331,14 +422,15 @@ export default function Analytics() {
     });
   }, [flEntrys]);
 
+  // Build weekday attendance rates for the trend chart.
   const weekdayAttendanceData = useMemo(() => {
     const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday",
-                      "Thursday", "Friday", "Saturday"].map(day => ({
-      day,
-      absent: 0,
-      present: 0,
-      total: 0,
-    }));
+      "Thursday", "Friday", "Saturday"].map(day => ({
+        day,
+        absent: 0,
+        present: 0,
+        total: 0,
+      }));
     flEntrys.forEach(entry => {
       const date = entry.dateObject;
       if (date) {
@@ -353,6 +445,7 @@ export default function Analytics() {
       .map(d => ({ ...d, rate: attpercentage(d.present, d.total) }));
   }, [flEntrys]);
 
+  // Compare broad session timing buckets for morning versus afternoon attendance.
   const timeOfDayAnalytics = useMemo(() => {
     const morning = { name: "Morning (6AM-12PM)", present: 0, absent: 0, total: 0 };
     const afternoon = { name: "Afternoon (12PM-6PM)", present: 0, absent: 0, total: 0 };
@@ -384,9 +477,8 @@ export default function Analytics() {
       )}
 
       <div
-        className={`fixed top-0 left-0 z-50 h-full transform bg-white transition-transform duration-300 sm:static sm:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 left-0 z-50 h-full transform bg-white transition-transform duration-300 sm:static sm:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <Sidebar
           drawerMode
@@ -460,7 +552,7 @@ export default function Analytics() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-700 text-lg mb-2">Attendance by Weekday</h3>
+                <h3 className="font-bold text-gray-700 text-lg mb-2">Attendance by Day</h3>
                 {weekdayAttendanceData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={weekdayAttendanceData}>
@@ -477,7 +569,7 @@ export default function Analytics() {
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-700 text-lg mb-2">Morning vs Afternoon Attendance</h3>
+                <h3 className="font-bold text-gray-700 text-lg mb-2">Morning vs Afternoon Attendance Analysis</h3>
                 {timeOfDayAnalytics.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <BarChart data={timeOfDayAnalytics}>
@@ -498,29 +590,28 @@ export default function Analytics() {
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-teal-600 border-b border-gray-200">
+                  <thead className="round-xl bg-teal-600 border-b border-gray-200">
                     <tr>
-                      <th className="px-4 py-3 text-lg text-white text-left font-semibold text-gray-700">Course</th>
-                      <th className="px-4 py-3 text-lg text-white text-left font-semibold text-gray-700">Total Attendance Records</th>
-                      <th className="px-4 py-3 text-lg text-white text-left font-semibold text-gray-700">Present Students</th>
-                      <th className="px-4 py-3 text-lg text-white text-left font-semibold text-gray-700">Absent Students</th>
-                      <th className="px-4 py-3 text-lg text-white text-left font-semibold text-gray-700">Attendance Percentage</th>
+                      <th className="px-4 py-3 text-lg text-white text-left font-medium text-gray-700">Course</th>
+                      <th className="px-4 py-3 text-lg text-white text-left font-medium text-gray-700">Total Attendance Records</th>
+                      <th className="px-4 py-3 text-lg text-white text-left font-medium text-gray-700">Present Students</th>
+                      <th className="px-4 py-3 text-lg text-white text-left font-medium text-gray-700">Absent Students</th>
+                      <th className="px-4 py-3 text-lg text-white text-left font-medium text-gray-700">Attendance Percentage</th>
                     </tr>
                   </thead>
                   <tbody>
                     {courseAnalytics.length > 0 ? (
-                      courseAnalytics.map((course) => (
+                      paginatedCourseAnalytics.map((course) => (
                         <tr key={course.courseKey} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="px-4 py-3 font-medium text-gray-800">{course.courseCode}</td>
                           <td className="px-4 py-3 text-gray-600">{course.totalRecords}</td>
                           <td className="px-4 py-3 text-green-600 font-semibold">{course.present}</td>
                           <td className="px-4 py-3 text-red-600 font-semibold">{course.absent}</td>
                           <td className="px-4 py-3">
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                              course.avgAttendance >= 80 ? "bg-green-100 text-green-700" :
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${course.avgAttendance >= 80 ? "bg-green-100 text-green-700" :
                               course.avgAttendance >= 60 ? "bg-yellow-100 text-yellow-700" :
-                              "bg-red-100 text-red-700"
-                            }`}>
+                                "bg-red-100 text-red-700"
+                              }`}>
                               {course.avgAttendance}%
                             </span>
                           </td>
@@ -534,6 +625,34 @@ export default function Analytics() {
                   </tbody>
                 </table>
               </div>
+              {courseAnalytics.length > TABLE_PAGE_SIZE && (
+                <div className="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-medium text-gray-600">
+                    Showing {(coursePage - 1) * TABLE_PAGE_SIZE + 1}-{Math.min(coursePage * TABLE_PAGE_SIZE, courseAnalytics.length)} of {courseAnalytics.length} courses
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setCoursePage(page => Math.max(1, page - 1))}
+                      disabled={coursePage === 1}
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm font-semibold text-gray-600">
+                      Page {coursePage} of {courseTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCoursePage(page => Math.min(courseTotalPages, page + 1))}
+                      disabled={coursePage === courseTotalPages}
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <h2 className="text-lg font-bold text-gray-800 mb-2 mt-8">Department Performance Analysis</h2>
@@ -585,34 +704,122 @@ export default function Analytics() {
             <h2 className="text-lg font-bold text-gray-800 mb-2 mt-8">At-Risk Students</h2>
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
               {atRiskStudents.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-teal-600 border border-gray-200">
-                      <tr>
-                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Student Name</th>
-                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Reg Number</th>
-                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Program</th>
-                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Year</th>
-                        {/* <th className="px-4 py-3 text-white text-left font-semibold">Department</th> */}
-                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Present</th>
-                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Absent</th>
-                        <th className="px-4 py-3 text-lg text-white text-left font-semibold">Attendance Percentage</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {atRiskStudents.map((student) => (
-                        <tr key={student.nameKey} className="border-b border-gray-100 hover:bg-teal-50">
-                          <td className="px-4 py-3 font-medium text-gray-800">{student.displayName}</td>
-                          <td className="px-4 py-3 text-gray-600">{student.regNo}</td>
-                          <td className="px-4 py-3 text-gray-600">{student.program}</td>
-                          <td className="px-4 py-3 text-gray-600">{student.years}</td>
-                          <td className="px-4 py-3 font-semibold text-green-600">{student.present}</td>
-                          <td className="px-4 py-3 font-bold text-red-700 text-lg">{student.absent}</td>
-                          <td className="px-4 py-3 text-gray-600">{student.rate}%</td>
+                <div>
+                  <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-semibold text-gray-700">Program</span>
+                      <select
+                        value={atRiskProgramFilter}
+                        onChange={(event) => {
+                          setAtRiskProgramFilter(event.target.value);
+                          setAtRiskPage(1);
+                        }}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                      >
+                        <option value="">All programs</option>
+                        {atRiskPrograms.map(program => (
+                          <option key={program} value={program}>{program}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-semibold text-gray-700">Sort by</span>
+                      <select
+                        value={atRiskSort}
+                        onChange={(event) => {
+                          setAtRiskSort(event.target.value);
+                          setAtRiskPage(1);
+                        }}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                      >
+                        <option value="risk">Highest risk first</option>
+                        <option value="name-asc">Student name A-Z</option>
+                        <option value="name-desc">Student name Z-A</option>
+                        <option value="year-asc">Year ascending</option>
+                        <option value="year-desc">Year descending</option>
+                      </select>
+                    </label>
+
+                    {(atRiskProgramFilter || atRiskSort !== "risk") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAtRiskProgramFilter("");
+                          setAtRiskSort("risk");
+                          setAtRiskPage(1);
+                        }}
+                        className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-teal-600 border border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-lg text-white text-left font-medium">Student Name</th>
+                          <th className="px-4 py-3 text-lg text-white text-left font-medium">Reg Number</th>
+                          <th className="px-4 py-3 text-lg text-white text-left font-medium">Program</th>
+                          <th className="px-4 py-3 text-lg text-white text-left font-medium">Year</th>
+                          {/* <th className="px-4 py-3 text-white text-left font-medium">Department</th> */}
+                          <th className="px-4 py-3 text-lg text-white text-left font-medium">Present</th>
+                          <th className="px-4 py-3 text-lg text-white text-left font-semibold">Absent</th>
+                          <th className="px-4 py-3 text-lg text-white text-left font-semibold">Attendance Percentage</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {filteredAtRiskStudents.length > 0 ? (
+                          paginatedAtRiskStudents.map((student) => (
+                            <tr key={student.nameKey} className="border-b border-gray-100 hover:bg-teal-50">
+                              <td className="px-4 py-3 font-medium text-gray-800">{student.displayName}</td>
+                              <td className="px-4 py-3 text-gray-600">{student.regNo}</td>
+                              <td className="px-4 py-3 text-gray-600">{student.program}</td>
+                              <td className="px-4 py-3 text-gray-600">{student.years}</td>
+                              <td className="px-4 py-3 font-semibold text-green-600">{student.present}</td>
+                              <td className="px-4 py-3 font-bold text-red-700 text-lg">{student.absent}</td>
+                              <td className="px-4 py-3 text-gray-600">{student.rate}%</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="7" className="px-4 py-8 text-center text-gray-500">No at-risk students match the selected program.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {filteredAtRiskStudents.length > TABLE_PAGE_SIZE && (
+                    <div className="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm font-medium text-gray-600">
+                        Showing {(atRiskPage - 1) * TABLE_PAGE_SIZE + 1}-{Math.min(atRiskPage * TABLE_PAGE_SIZE, filteredAtRiskStudents.length)} of {filteredAtRiskStudents.length} students
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setAtRiskPage(page => Math.max(1, page - 1))}
+                          disabled={atRiskPage === 1}
+                          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-sm font-semibold text-gray-600">
+                          Page {atRiskPage} of {atRiskTotalPages}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setAtRiskPage(page => Math.min(atRiskTotalPages, page + 1))}
+                          disabled={atRiskPage === atRiskTotalPages}
+                          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
@@ -626,4 +833,3 @@ export default function Analytics() {
     </div>
   );
 }
-
