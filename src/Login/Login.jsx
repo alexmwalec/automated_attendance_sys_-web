@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useNavigate } from "react-router-dom";
@@ -9,28 +9,20 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError("");
+    setFeedback({ type: "", message: "" });
     setLoading(true);
 
-    // 1. Lecturer Check
-    if (email.trim().toLowerCase() === "alexmwalec03@gmail.com" && password === "12345678") {
-      navigate("/lecturer-sessions");
-      setLoading(false);
-      return;
-    }
-
     try {
-      // 2. Firebase Authentication
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 3. Fetch User Role from Firestore
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
 
@@ -47,11 +39,11 @@ export default function Login() {
           navigate("/lecturer-sessions");
         } else {
           await signOut(auth);
-          setError("Access Denied: Unrecognized user role.");
+          setFeedback({ type: "error", message: "Access Denied: Unrecognized user role." });
         }
       } else {
         await signOut(auth);
-        setError("User profile not found in system.");
+        setFeedback({ type: "error", message: "User profile not found in system." });
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -60,12 +52,46 @@ export default function Login() {
         err.code === "auth/wrong-password" ||
         err.code === "auth/invalid-credential"
       ) {
-        setError("Invalid email or password.");
+        setFeedback({ type: "error", message: "Invalid email or password." });
       } else {
-        setError("An error occurred. Please try again.");
+        setFeedback({ type: "error", message: "An error occurred. Please try again." });
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    setFeedback({ type: "", message: "" });
+
+    if (!trimmedEmail) {
+      setFeedback({ type: "error", message: "Enter your email address first." });
+      return;
+    }
+
+    try {
+      setResetLoading(true);
+      await sendPasswordResetEmail(auth, trimmedEmail, {
+        url: `${window.location.origin}/change-password`,
+        handleCodeInApp: true,
+      });
+      setFeedback({
+        type: "success",
+        message: "If this email is registered, a password reset email will arrive shortly.",
+      });
+    } catch (err) {
+      console.error("Password reset error:", err);
+      if (err.code === "auth/invalid-email") {
+        setFeedback({ type: "error", message: "Enter a valid email address." });
+      } else {
+        setFeedback({
+          type: "error",
+          message: "Unable to send password reset email. Please try again.",
+        });
+      }
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -76,12 +102,18 @@ export default function Login() {
 
         <form onSubmit={handleLogin} className="space-y-4 text-left">
           {/* Error Message */}
-          {error && (
-            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-100">
+          {feedback.message && (
+            <div
+              className={`flex items-center gap-2 text-sm p-3 rounded-xl border ${
+                feedback.type === "success"
+                  ? "text-emerald-700 bg-emerald-50 border-emerald-100"
+                  : "text-red-600 bg-red-50 border-red-100"
+              }`}
+            >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
-              {error}
+              {feedback.message}
             </div>
           )}
 
@@ -140,6 +172,15 @@ export default function Login() {
             ) : (
               "Log In"
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            disabled={resetLoading}
+            className="block w-full text-center text-sm font-medium text-teal-700 hover:text-teal-900 hover:underline disabled:text-slate-400 disabled:no-underline"
+          >
+            {resetLoading ? "Sending reset email..." : "Forgot password?"}
           </button>
         </form>
       </div>
